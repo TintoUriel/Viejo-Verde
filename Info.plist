@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Nombre que se muestra bajo el ícono en el iPhone. -->
+    <key>CFBundleDisplayName</key>
+    <string>Viejo Verde</string>
+    <key>CFBundleName</key>
+    <string>Viejo Verde</string>
+
+    <!-- Fotos de las plantas (cámara) para el historial y para el diagnóstico del asistente. -->
+    <key>NSCameraUsageDescription</key>
+    <string>Viejo Verde usa la cámara para sacarle fotos a tus plantas y guardarlas en su historial.</string>
+
+    <!-- Solo vertical: se usa con una mano en el patio. -->
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+    </array>
+</dict>
+</plist>

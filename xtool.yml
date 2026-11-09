@@ -1,0 +1,5 @@
+version: 1
+bundleID: com.tinto.viejoverde
+product: ViejoVerde
+infoPath: Info.plist
+iconPath: Icono.png

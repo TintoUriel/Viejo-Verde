@@ -1,0 +1,11 @@
+.build/
+.xtool-tmp/
+xtool/
+.bsp/
+.swiftpm/
+.DS_Store
+*.ipa
+ViejoVerde.xcodeproj/
+build/
+Payload/
+ci/Assets.xcassets/AppIcon.appiconset/Icono.png

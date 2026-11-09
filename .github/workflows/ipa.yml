@@ -1,0 +1,69 @@
+name: Compilar IPA
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  # Tests de la lógica en Linux (rápido y barato).
+  tests:
+    runs-on: ubuntu-latest
+    container: swift:6.1
+    steps:
+      - uses: actions/checkout@v4
+      - run: SOLO_CORE=1 swift test
+
+  # Compila la app en una Mac de GitHub y deja el .ipa sin firmar para instalar con Sideloadly.
+  ipa:
+    needs: tests
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Generar el proyecto de Xcode
+        run: |
+          brew install xcodegen
+          cp Icono.png ci/Assets.xcassets/AppIcon.appiconset/Icono.png
+          xcodegen generate
+
+      - name: Compilar (sin firmar)
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project ViejoVerde.xcodeproj \
+            -scheme ViejoVerde \
+            -configuration Debug \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            | tee xcodebuild.log | grep -E "error:|warning: .*ViejoVerde|BUILD (SUCCEEDED|FAILED)" || true
+          grep -q "BUILD SUCCEEDED" xcodebuild.log
+
+      - name: Armar el .ipa
+        run: |
+          APP=$(find build/Build/Products -maxdepth 2 -name "ViejoVerde.app" -type d | head -1)
+          test -n "$APP"
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          zip -qry ViejoVerde.ipa Payload
+          ls -lh ViejoVerde.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ViejoVerde-ipa
+          path: ViejoVerde.ipa
+          retention-days: 14
+
+      - name: Log de compilación (si falla)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log
+          path: xcodebuild.log
