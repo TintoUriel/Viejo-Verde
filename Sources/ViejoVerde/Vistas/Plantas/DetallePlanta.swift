@@ -127,6 +127,12 @@ struct DetallePlanta: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             BarraEtapas(estado: e)
+            if p.estado == .activa && p.sexo != .macho {
+                Label("Cosecha estimada desde el \(Formato.fechaCorta(Planificador.cosechaEstimada(de: p)))",
+                      systemImage: "calendar")
+                    .font(.footnote)
+                    .foregroundStyle(Tema.ambar)
+            }
             switch p.estado {
             case .secando:
                 Text("Secando hace \(e.diaEnEtapa) días").font(.subheadline.weight(.semibold))
@@ -357,10 +363,18 @@ struct DetallePlanta: View {
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
-                        ForEach(p.fotos.reversed(), id: \.self) { nombre in
-                            Button { fotoAbierta = FotoElegida(nombre: nombre) } label: { Miniatura(nombre: nombre) }
+                        ForEach(p.lineaDeTiempo.reversed()) { f in
+                            Button { fotoAbierta = FotoElegida(nombre: f.nombre) } label: { Miniatura(nombre: f.nombre) }
                                 .buttonStyle(.plain)
                         }
+                    }
+                }
+                if p.fotos.count >= 2 {
+                    NavigationLink {
+                        VistaLineaTiempo(plantaID: plantaID)
+                    } label: {
+                        Label("Ver línea de tiempo", systemImage: "photo.stack")
+                            .font(.subheadline.weight(.semibold))
                     }
                 }
             }

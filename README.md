@@ -76,6 +76,15 @@ Arrancá por **Ajustes → Debug → Cargar ejemplo** para tener plantas en toda
 5. **Asistente**: cargá la API key en Ajustes, probá los chips y mandale una foto de una hoja.
    Abajo (o con el botón Guía) está la guía rápida offline.
 6. **Backup**: Exportar (con o sin fotos) a Archivos, Borrar todo, Importar ese archivo.
+7. **Clima** (Hoy, arriba): pronóstico de CABA (Open-Meteo, sin clave). Si ayer llovió ≥ 5 mm no pide
+   regar las del patio; con ≥ 32 °C pide revisar todos los días; con humedad alta en floración aparece
+   "Revisá hongos". Botón **Llovió** = riego en todas las del patio. Deslizá hacia abajo para actualizar.
+8. **Regué las N** (Hoy): aparece con 2 o más riegos pendientes y los registra todos.
+9. **Planificar** (Hoy, abajo, o Plantas → ⋯): fechas estimadas de una tanda nueva y gráfico de plantas
+   en flor por semana contra el cupo de 9, con cuántas podrías germinar sin pasarte.
+10. **Cosechas** (Plantas → ⋯): totales, gramos por cosecha, por variedad y por temporada.
+11. **Línea de tiempo** (detalle de planta, con 2+ fotos): fotos en orden con día y etapa.
+12. **Chat**: queda guardado al cerrar la app ("Nuevo chat" lo borra).
 
 ## Notas
 

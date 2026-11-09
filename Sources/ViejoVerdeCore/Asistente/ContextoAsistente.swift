@@ -13,13 +13,14 @@ public enum ContextoAsistente {
     """
 
     /// Contexto de hoy: fecha, lugar, límites legales y resumen de las plantas.
-    public static func contexto(datos: Datos, hoy: Date) -> String {
+    public static func contexto(datos: Datos, hoy: Date, clima: Pronostico? = nil) -> String {
         var l: [String] = []
         l.append("Fecha de hoy: \(Formato.fechaLarga(hoy)) (\(Calendario.claveDia(hoy))).")
         l.append("Ubicación: CABA, Buenos Aires, Argentina (hemisferio sur). Cultivo en el patio, exterior; machos adentro.")
         l.append("Límites REPROCANN: hasta \(Cupo.plantasFlorecidas) plantas florecidas y hasta \(Cupo.metrosExterior) m² en exterior.")
         let temporada = Temporada.consejo(para: hoy)
         l.append("Temporada: \(temporada.titulo). \(temporada.texto)")
+        if let c = AnalisisClima.resumen(clima, hoy: hoy) { l.append(c) }
         l.append("Insumos: macetas de tela, sustrato Growmix, Top Veg y Top Bloom (Top Crop), jabón potásico con neem.")
 
         let cupo = Cupo.resumen(datos.plantas, hoy: hoy)
@@ -58,6 +59,9 @@ public enum ContextoAsistente {
             }
             partes.append(fert)
             partes.append("neem: \(hace(p.ultimaFecha([.neem]), hoy))")
+            if p.sexo != .macho {
+                partes.append("cosecha estimada desde el \(Formato.fechaCorta(Planificador.cosechaEstimada(de: p)))")
+            }
             if let fp = p.fechaPolinizacion { partes.append("polinizada \(hace(fp, hoy))") }
         case .secando:
             partes.append("secando hace \(e.diaEnEtapa) días")

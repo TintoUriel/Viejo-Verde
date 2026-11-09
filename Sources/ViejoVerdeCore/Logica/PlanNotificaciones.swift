@@ -31,7 +31,7 @@ public enum PlanNotificaciones {
     public static let diasResumen = 7
     public static let diasPuntuales = 60
 
-    public static func planificar(datos: Datos, ahora: Date) -> [NotificacionPlaneada] {
+    public static func planificar(datos: Datos, ahora: Date, clima: Pronostico? = nil) -> [NotificacionPlaneada] {
         let a = datos.avisos
         guard a.activos else { return [] }
         var plan: [NotificacionPlaneada] = []
@@ -46,7 +46,8 @@ public enum PlanNotificaciones {
                 guard fecha > ahora else { continue }
                 // A futuro se simula sin registros nuevos: sirve como recordatorio de lo pendiente.
                 let tareas = Tareas.generar(plantas: datos.plantas, paquetes: datos.paquetes, hoy: fecha,
-                                            config: datos.config, pospuestas: d == 0 ? datos.pospuestas : [:])
+                                            config: datos.config, pospuestas: d == 0 ? datos.pospuestas : [:],
+                                            clima: clima)
                 guard !tareas.isEmpty else { continue }
                 var lineas = tareas.prefix(3).map(\.titulo)
                 if tareas.count > 3 { lineas.append("y \(tareas.count - 3) más") }

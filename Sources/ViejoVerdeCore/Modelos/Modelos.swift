@@ -45,6 +45,8 @@ public enum TipoRegistro: String, Codable, CaseIterable, Sendable {
     case riego, fertilizante, neem, nota, problema, sexo, polinizacion, cosecha, secado, germinacion
     /// Apertura de frascos durante el curado.
     case curado
+    /// Revisión (por ejemplo, de hongos después de días húmedos).
+    case revision
 
     public var nombre: String {
         switch self {
@@ -59,6 +61,7 @@ public enum TipoRegistro: String, Codable, CaseIterable, Sendable {
         case .secado: "A frascos"
         case .germinacion: "Germinación"
         case .curado: "Abrí frascos"
+        case .revision: "Revisión"
         }
     }
 }
@@ -128,12 +131,14 @@ public struct Planta: Codable, Identifiable, Hashable, Sendable {
     public var paqueteOrigenID: UUID?
     /// Litros de la maceta (para calcular el agua y el fertilizante).
     public var litrosMaceta: Double
+    /// Cuándo se sacó cada foto (nombre de archivo → fecha).
+    public var fechasFotos: [String: Date]
 
     public init(id: UUID = UUID(), nombre: String, variedad: String, tipo: TipoPlanta, semilla: TipoSemilla,
                 sexo: Sexo? = nil, ubicacion: Ubicacion = .patio, fechaGerminacion: Date,
                 estado: EstadoPlanta = .activa, fechaPolinizacion: Date? = nil, polenJuntado: Bool = false,
                 cosecha: Cosecha? = nil, registros: [Registro] = [], fotos: [String] = [],
-                paqueteOrigenID: UUID? = nil, litrosMaceta: Double = 20) {
+                paqueteOrigenID: UUID? = nil, litrosMaceta: Double = 20, fechasFotos: [String: Date] = [:]) {
         self.id = id
         self.nombre = nombre
         self.variedad = variedad
@@ -151,6 +156,7 @@ public struct Planta: Codable, Identifiable, Hashable, Sendable {
         self.fotos = fotos
         self.paqueteOrigenID = paqueteOrigenID
         self.litrosMaceta = litrosMaceta
+        self.fechasFotos = fechasFotos
     }
 
     // Decodificación tolerante: si un backup viejo no trae algún campo nuevo, se usa el valor por defecto.
@@ -172,6 +178,7 @@ public struct Planta: Codable, Identifiable, Hashable, Sendable {
         fotos = try c.decodeIfPresent([String].self, forKey: .fotos) ?? []
         paqueteOrigenID = try c.decodeIfPresent(UUID.self, forKey: .paqueteOrigenID)
         litrosMaceta = try c.decodeIfPresent(Double.self, forKey: .litrosMaceta) ?? 20
+        fechasFotos = try c.decodeIfPresent([String: Date].self, forKey: .fechasFotos) ?? [:]
     }
 
     /// Fecha del último registro de alguno de esos tipos.

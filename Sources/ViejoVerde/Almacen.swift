@@ -12,6 +12,10 @@ final class Almacen {
     private(set) var ultimoError: String?
     /// "Hoy" de la app. Se refresca al volver a abrirla, para que las tareas cambien de día.
     private(set) var hoy = Date()
+    /// Pronóstico de CABA (Open-Meteo). Puede ser nil si nunca hubo internet.
+    private(set) var clima: Pronostico?
+    /// Chat con el asistente (se guarda aparte, en chat.json).
+    private(set) var chat: [MensajeChat] = []
 
     @ObservationIgnored private var tareaAvisos: Task<Void, Never>?
 
@@ -30,11 +34,30 @@ final class Almacen {
         let (d, error) = Self.leer(Self.carpeta.appendingPathComponent(Self.archivoReal))
         datos = d
         ultimoError = error
+        clima = ServicioClima.cache()
+        chat = Self.leerChat(Self.carpeta.appendingPathComponent("chat.json"))
     }
 
     var tareas: [Tarea] {
         Tareas.generar(plantas: datos.plantas, paquetes: datos.paquetes, hoy: hoy,
-                       config: datos.config, pospuestas: datos.pospuestas)
+                       config: datos.config, pospuestas: datos.pospuestas, clima: climaVigente)
+    }
+
+    /// El pronóstico solo sirve si es de hoy o ayer.
+    var climaVigente: Pronostico? {
+        guard let c = clima, c.dia(hoy) != nil else { return nil }
+        return c
+    }
+
+    var avisosClima: [AvisoClima] { AnalisisClima.avisos(climaVigente, plantas: datos.plantas, hoy: hoy) }
+
+    /// Baja el pronóstico si el que hay es viejo.
+    func actualizarClima(forzar: Bool = false) async {
+        if !forzar, let c = clima, Date().timeIntervalSince(c.actualizado) < ServicioClima.vigencia { return }
+        if let nuevo = await ServicioClima.descargar() {
+            clima = nuevo
+            programarAvisos()
+        }
     }
 
     var cupo: ResumenCupo { Cupo.resumen(datos.plantas, hoy: hoy) }
@@ -45,6 +68,7 @@ final class Almacen {
     func alVolver() {
         hoy = Date()
         programarAvisos(inmediato: true)
+        Task { await actualizarClima() }
     }
 
     /// Única puerta para modificar datos: aplica el cambio y guarda.
@@ -78,6 +102,7 @@ final class Almacen {
         modoEjemplo = true
         datos = Ejemplo.datos(hoy: Date())
         guardar()
+        chat = Self.leerChat(archivoChat)
     }
 
     func salirModoEjemplo() {
@@ -86,6 +111,7 @@ final class Almacen {
         let (d, error) = Self.leer(archivo)
         datos = d
         ultimoError = error
+        chat = Self.leerChat(archivoChat)
         programarAvisos(inmediato: true)
     }
 
@@ -97,11 +123,40 @@ final class Almacen {
         guard !modoEjemplo else { return }
         tareaAvisos?.cancel()
         let copia = datos
+        let pronostico = climaVigente
         tareaAvisos = Task {
             if !inmediato { try? await Task.sleep(nanoseconds: 800_000_000) }
             guard !Task.isCancelled else { return }
-            await Notificaciones.reprogramar(copia)
+            await Notificaciones.reprogramar(copia, clima: pronostico)
         }
+    }
+
+    // MARK: Chat
+
+    private var archivoChat: URL {
+        Self.carpeta.appendingPathComponent(modoEjemplo ? "chat-ejemplo.json" : "chat.json")
+    }
+
+    func agregarAlChat(_ mensaje: MensajeChat) {
+        chat.append(mensaje)
+        guardarChat()
+    }
+
+    func borrarChat() {
+        chat = []
+        guardarChat()
+    }
+
+    private func guardarChat() {
+        let recortado = HistorialChat.recortar(chat)
+        if let json = try? Backup.codificador().encode(recortado) {
+            try? json.write(to: archivoChat, options: [.atomic, .completeFileProtection])
+        }
+    }
+
+    private static func leerChat(_ url: URL) -> [MensajeChat] {
+        guard let data = try? Data(contentsOf: url) else { return [] }
+        return (try? Backup.decodificador().decode([MensajeChat].self, from: data)) ?? []
     }
 
     // MARK: Disco
@@ -214,10 +269,30 @@ extension Almacen {
             cambiar { $0.registrar(.curado, en: id, fecha: ahora) }
         case .terminar:
             cambiar { $0.terminar(id, fecha: ahora) }
+        case .revise:
+            cambiar { $0.registrar(.revision, en: id, fecha: ahora, nota: "Revisé hongos") }
         case .hoyNo:
             if let tareaID { cambiar { $0.posponer(tareaID, hoy: ahora) } }
         }
         return nil
+    }
+
+    /// "Regué todas": registra el riego de cada tarea de riego pendiente, con su cantidad de agua.
+    func regarTodas(_ tareas: [Tarea]) {
+        let ahora = Date()
+        let riegos = tareas.filter { $0.tipo == .riego }
+        cambiar { d in
+            for t in riegos { d.registrar(.riego, en: t.plantaID, fecha: ahora, aguaML: t.dosis?.aguaML) }
+        }
+    }
+
+    /// "Llovió": cuenta como riego para todas las del patio. Usa los mm de hoy si los hay.
+    @discardableResult
+    func llovio() -> Int {
+        let mm = climaVigente?.dia(hoy)?.lluviaMM
+        var cuantas = 0
+        cambiar { cuantas = $0.llovio(fecha: Date(), mm: (mm ?? 0) > 0 ? mm : nil) }
+        return cuantas
     }
 
     func ejecutar(_ accion: AccionTarea, en tarea: Tarea) -> PedidoDato? {

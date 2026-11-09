@@ -18,7 +18,7 @@ enum Notificaciones {
     }
 
     /// Borra las notificaciones de la app que estaban pendientes y programa las nuevas.
-    static func reprogramar(_ datos: Datos) async {
+    static func reprogramar(_ datos: Datos, clima: Pronostico? = nil) async {
         let pendientes = await centro.pendingNotificationRequests()
         let nuestras = pendientes.map(\.identifier).filter { $0.hasPrefix(PlanNotificaciones.prefijo) }
         centro.removePendingNotificationRequests(withIdentifiers: nuestras)
@@ -26,7 +26,7 @@ enum Notificaciones {
         let estado = await estado()
         guard estado == .authorized || estado == .provisional else { return }
 
-        for n in PlanNotificaciones.planificar(datos: datos, ahora: Date()) {
+        for n in PlanNotificaciones.planificar(datos: datos, ahora: Date(), clima: clima) {
             let segundos = n.fecha.timeIntervalSinceNow
             guard segundos > 1 else { continue }
             let contenido = UNMutableNotificationContent()

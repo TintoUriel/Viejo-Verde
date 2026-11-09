@@ -177,12 +177,35 @@ public struct Datos: Codable, Equatable, Sendable {
 
     // MARK: Fotos
 
-    public mutating func agregarFoto(_ nombre: String, en id: UUID) {
-        modificar(id) { $0.fotos.append(nombre) }
+    public mutating func agregarFoto(_ nombre: String, en id: UUID, fecha: Date = Date()) {
+        modificar(id) {
+            $0.fotos.append(nombre)
+            $0.fechasFotos[nombre] = fecha
+        }
     }
 
     public mutating func quitarFoto(_ nombre: String, en id: UUID) {
-        modificar(id) { $0.fotos.removeAll { $0 == nombre } }
+        modificar(id) {
+            $0.fotos.removeAll { $0 == nombre }
+            $0.fechasFotos[nombre] = nil
+        }
+    }
+
+    // MARK: Acciones en grupo
+
+    /// Registra el mismo tipo en varias plantas.
+    public mutating func registrarEnGrupo(_ tipo: TipoRegistro, en ids: [UUID], fecha: Date,
+                                          producto: String? = nil, nota: String? = nil) {
+        for id in ids { registrar(tipo, en: id, fecha: fecha, producto: producto, nota: nota) }
+    }
+
+    /// "Llovió": cuenta como riego para todas las plantas activas del patio. Devuelve cuántas.
+    @discardableResult
+    public mutating func llovio(fecha: Date, mm: Double? = nil) -> Int {
+        let ids = plantas.filter { $0.estado == .activa && $0.ubicacion == .patio }.map(\.id)
+        registrarEnGrupo(.riego, en: ids, fecha: fecha, producto: "Lluvia",
+                         nota: mm.map { "\(Formato.numero($0)) mm" })
+        return ids.count
     }
 
     /// Todas las fotos referenciadas (para el backup y para limpiar archivos huérfanos).

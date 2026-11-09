@@ -11,8 +11,19 @@ struct VistaHoy: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     encabezado
+                    TarjetaClima()
                     resumen
                     tareas
+                    NavigationLink {
+                        VistaPlanificador()
+                    } label: {
+                        Label("Planificar la próxima tanda", systemImage: "calendar.badge.plus")
+                            .font(.body.weight(.semibold))
+                            .frame(maxWidth: .infinity, minHeight: 50)
+                            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Tema.verdeSuave))
+                            .foregroundStyle(Tema.verde)
+                    }
+                    .buttonStyle(.plain)
                 }
                 .padding()
             }
@@ -21,6 +32,7 @@ struct VistaHoy: View {
             .navigationDestination(for: UUID.self) { id in DetallePlanta(plantaID: id) }
             .sheet(item: $pedido) { p in SheetNumero(pedido: p) }
             .sensoryFeedback(.success, trigger: hechas)
+            .refreshable { await almacen.actualizarClima(forzar: true) }
         }
     }
 
@@ -88,6 +100,13 @@ struct VistaHoy: View {
                     .foregroundStyle(.secondary)
             }
         } else {
+            let riegos = lista.filter { $0.tipo == .riego }
+            if riegos.count >= 2 {
+                BotonGrande(titulo: "Regué las \(riegos.count)", icono: "drop.fill", color: .blue) {
+                    almacen.regarTodas(riegos)
+                    hechas += 1
+                }
+            }
             ForEach(lista) { t in
                 TarjetaTarea(tarea: t) { accion in
                     if let p = almacen.ejecutar(accion, en: t) {

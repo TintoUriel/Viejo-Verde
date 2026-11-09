@@ -49,6 +49,7 @@ extension TipoTarea {
         switch self {
         case .machoPatio: "exclamationmark.triangle.fill"
         case .cosecha: "scissors"
+        case .hongos: "allergens"
         case .sexado: "questionmark.circle.fill"
         case .machoPolen: "aqi.medium"
         case .semillas: "circle.grid.3x3.fill"
@@ -76,6 +77,7 @@ extension AccionTarea {
         case .aFrascos: "takeoutbag.and.cup.and.straw.fill"
         case .abriFrascos: "lock.open.fill"
         case .terminar: "checkmark.seal.fill"
+        case .revise: "checkmark.circle.fill"
         case .hoyNo: "moon.zzz.fill"
         }
     }
@@ -95,6 +97,7 @@ extension TipoRegistro {
         case .secado: "takeoutbag.and.cup.and.straw.fill"
         case .germinacion: "leaf.fill"
         case .curado: "lock.open.fill"
+        case .revision: "eye.fill"
         }
     }
 

@@ -2,7 +2,7 @@ import Foundation
 
 public enum TipoTarea: Int, Codable, CaseIterable, Sendable, Comparable {
     // El orden define cómo se muestran (después de las urgentes).
-    case machoPatio, cosecha, sexado, machoPolen, semillas, fertilizante, riego, neem, secado, curado
+    case machoPatio, cosecha, hongos, sexado, machoPolen, semillas, fertilizante, riego, neem, secado, curado
 
     public static func < (a: TipoTarea, b: TipoTarea) -> Bool { a.rawValue < b.rawValue }
 }
@@ -11,6 +11,8 @@ public enum AccionTarea: String, Codable, Sendable {
     case regue, fertilice, neem
     case hembra, macho, moverAdentro, juntePolen
     case registrarSemillas, cosechar, aFrascos, abriFrascos, terminar
+    /// Revisé (hongos): queda registrado y no vuelve a aparecer hoy.
+    case revise
     /// Oculta la tarea hasta mañana sin registrar nada.
     case hoyNo
 
@@ -28,6 +30,7 @@ public enum AccionTarea: String, Codable, Sendable {
         case .aFrascos: "A frascos"
         case .abriFrascos: "Abrí los frascos"
         case .terminar: "Terminar"
+        case .revise: "Revisé"
         case .hoyNo: "Hoy no"
         }
     }
@@ -79,10 +82,11 @@ public enum Tareas {
     /// Genera las tareas de hoy. `pospuestas`: id de tarea → día en que se tocó "Hoy no".
     public static func generar(plantas: [Planta], paquetes: [PaqueteSemillas] = [], hoy: Date,
                                config: ConfigDosis = ConfigDosis(),
-                               pospuestas: [String: Date] = [:]) -> [Tarea] {
+                               pospuestas: [String: Date] = [:],
+                               clima: Pronostico? = nil) -> [Tarea] {
         var todas: [Tarea] = []
         for p in plantas {
-            todas += tareas(de: p, paquetes: paquetes, hoy: hoy, config: config)
+            todas += tareas(de: p, paquetes: paquetes, hoy: hoy, config: config, clima: clima)
         }
         return todas
             .filter { t in !(pospuestas[t.id].map { Calendario.mismoDia($0, hoy) } ?? false) }
@@ -93,7 +97,8 @@ public enum Tareas {
             }
     }
 
-    static func tareas(de p: Planta, paquetes: [PaqueteSemillas], hoy: Date, config: ConfigDosis) -> [Tarea] {
+    static func tareas(de p: Planta, paquetes: [PaqueteSemillas], hoy: Date, config: ConfigDosis,
+                       clima: Pronostico? = nil) -> [Tarea] {
         var r: [Tarea] = []
         let n = p.nombre
         func t(_ tipo: TipoTarea, _ titulo: String, _ detalle: String, urgente: Bool = false,
@@ -116,11 +121,23 @@ public enum Tareas {
             let dosis = CalculoDosis.dosis(etapa: e.etapa, diaEnEtapa: e.diaEnEtapa,
                                            litrosMaceta: p.litrosMaceta, config: config)
             let sinRiego = diasDesde([.riego, .fertilizante], siNunca: p.fechaGerminacion) ?? 0
-            let tocaRegar = sinRiego >= diasEntreRiegos
+            // Clima (solo para las del patio): si ayer llovió fuerte no hace falta regar;
+            // con calor fuerte, las macetas de tela se secan en un día.
+            let enPatio = p.ubicacion == .patio
+            let llovio = enPatio && AnalisisClima.lluviaAyer(clima, hoy: hoy) >= AnalisisClima.lluviaQueRiega
+            let calor = enPatio && AnalisisClima.hayCalor(clima, hoy: hoy)
+            let lluviaHoy = enPatio ? AnalisisClima.lluviaHoyProbable(clima, hoy: hoy) : nil
+            let tocaRegar = !llovio && sinRiego >= (calor ? 1 : diasEntreRiegos)
+            var notaClima = ""
+            if let mm = lluviaHoy {
+                notaClima = " Pronóstico: \(Formato.numero(mm)) mm de lluvia hoy; si podés, esperá."
+            } else if calor {
+                notaClima = " Hace calor: regá temprano o al atardecer."
+            }
             let sinFertilizar = diasDesde([.fertilizante], siNunca: nil) ?? Int.max
             if tocaRegar, let f = dosis.fertilizante, sinFertilizar >= diasEntreFertilizantes {
                 t(.fertilizante, "Toca \(f.nombre) para \(n)",
-                  "Si la maceta está liviana: \(dosis.textoFertilizante ?? ""). Siempre a mitad de la dosis de la etiqueta.",
+                  "Si la maceta está liviana: \(dosis.textoFertilizante ?? ""). Siempre a mitad de la dosis de la etiqueta." + notaClima,
                   [.fertilice, .regue, .hoyNo], dosis: dosis)
             } else if tocaRegar {
                 var detalle = "Si está liviana, echale \(dosis.textoAgua). Si sale agua por abajo antes, pará."
@@ -129,6 +146,7 @@ public enum Tareas {
                 } else if e.etapa == .plantula {
                     detalle += " Chorrito alrededor del tallo, todavía sin fertilizante."
                 }
+                detalle += notaClima
                 t(.riego, "Fijate si \(n) necesita agua (levantá la maceta)", detalle, [.regue, .hoyNo], dosis: dosis)
             }
 
@@ -163,6 +181,16 @@ public enum Tareas {
                !paquetes.contains(where: { $0.plantaMadreID == p.id }) {
                 t(.semillas, "Revisá las semillas de \(n)",
                   "Están listas si están marrones o atigradas.", [.registrarSemillas, .hoyNo])
+            }
+
+            // --- Hongos después de días húmedos (cogollos en el patio) ---
+            if enPatio, p.sexo != .macho,
+               [Etapa.floracion, .maduracion, .listaCosecha].contains(e.etapa),
+               AnalisisClima.riesgoHongos(clima, hoy: hoy),
+               !(p.ultimaFecha([.revision]).map { Calendario.mismoDia($0, hoy) } ?? false) {
+                t(.hongos, "Revisá hongos en \(n)",
+                  "Hubo humedad o lluvia: abrí un poco los cogollos más gordos. Si ves partes marrones o pelusa gris, cortalas y tiralas lejos.",
+                  [.revise, .hoyNo])
             }
 
             // --- Punto de cosecha ---

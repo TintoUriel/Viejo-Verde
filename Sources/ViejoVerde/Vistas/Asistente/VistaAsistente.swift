@@ -4,7 +4,6 @@ import ViejoVerdeCore
 
 struct VistaAsistente: View {
     @Environment(Almacen.self) private var almacen
-    @State private var mensajes: [MensajeChat] = []
     @State private var texto = ""
     @State private var foto: UIImage?
     @State private var enviando = false
@@ -19,8 +18,8 @@ struct VistaAsistente: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 12) {
-                        if mensajes.isEmpty { bienvenida }
-                        ForEach(mensajes) { m in
+                        if almacen.chat.isEmpty { bienvenida }
+                        ForEach(almacen.chat) { m in
                             Burbuja(mensaje: m).id(m.id)
                         }
                         if enviando {
@@ -35,7 +34,7 @@ struct VistaAsistente: View {
                     .padding()
                 }
                 .scrollDismissesKeyboard(.interactively)
-                .onChange(of: mensajes.count) { _, _ in
+                .onChange(of: almacen.chat.count) { _, _ in
                     withAnimation { proxy.scrollTo(idFinal, anchor: .bottom) }
                 }
                 .onChange(of: enviando) { _, _ in
@@ -52,11 +51,11 @@ struct VistaAsistente: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        mensajes = []
+                        almacen.borrarChat()
                         texto = ""
                         foto = nil
                     } label: { Label("Nuevo chat", systemImage: "square.and.pencil") }
-                    .disabled(mensajes.isEmpty || enviando)
+                    .disabled(almacen.chat.isEmpty || enviando)
                 }
             }
             .sheet(isPresented: $mostrarGuia) {
@@ -167,26 +166,26 @@ struct VistaAsistente: View {
         let limpia = pregunta.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !enviando, !limpia.isEmpty || foto != nil else { return }
         guard let clave = Llavero.leerClave() else {
-            mensajes.append(MensajeChat(rol: .usuario, texto: limpia))
-            mensajes.append(MensajeChat(rol: .asistente, texto: ErrorClaude.sinClave.mensaje, esError: true))
+            almacen.agregarAlChat(MensajeChat(rol: .usuario, texto: limpia))
+            almacen.agregarAlChat(MensajeChat(rol: .asistente, texto: ErrorClaude.sinClave.mensaje, esError: true))
             return
         }
         let jpeg = foto.flatMap { Fotos.jpegParaClaude($0) }
-        mensajes.append(MensajeChat(rol: .usuario, texto: limpia, imagenJPEG: jpeg))
+        almacen.agregarAlChat(MensajeChat(rol: .usuario, texto: limpia, imagenJPEG: jpeg))
         texto = ""
         foto = nil
         enfocado = false
         enviando = true
 
-        let historial = mensajes
-        let contexto = ContextoAsistente.contexto(datos: almacen.datos, hoy: Date())
+        let historial = almacen.chat
+        let contexto = ContextoAsistente.contexto(datos: almacen.datos, hoy: Date(), clima: almacen.climaVigente)
         Task {
             let resultado = await ClienteClaude.enviar(historial: historial, contexto: contexto, apiKey: clave)
             switch resultado {
             case .success(let r):
-                mensajes.append(MensajeChat(rol: .asistente, texto: r.texto, bloques: r.bloques))
+                almacen.agregarAlChat(MensajeChat(rol: .asistente, texto: r.texto, bloques: r.bloques))
             case .failure(let error):
-                mensajes.append(MensajeChat(rol: .asistente, texto: error.mensaje, esError: true))
+                almacen.agregarAlChat(MensajeChat(rol: .asistente, texto: error.mensaje, esError: true))
             }
             enviando = false
         }

@@ -49,6 +49,23 @@ struct VistaPlantas: View {
             }
             .navigationTitle("Plantas")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Menu {
+                        NavigationLink {
+                            VistaPlanificador()
+                        } label: {
+                            Label("Planificar", systemImage: "calendar.badge.plus")
+                        }
+                        NavigationLink {
+                            VistaCosechas()
+                        } label: {
+                            Label("Cosechas", systemImage: "chart.bar.fill")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle").font(.title3)
+                    }
+                    .accessibilityLabel("Más")
+                }
                 ToolbarItem(placement: .primaryAction) {
                     Button { nueva = true } label: {
                         Image(systemName: "plus.circle.fill").font(.title2)
