@@ -71,6 +71,11 @@ public enum Fertilizante: String, Codable, CaseIterable, Sendable {
     public var nombre: String { self == .topVeg ? "Top Veg" : "Top Bloom" }
 }
 
+/// Para las notas que la app escribe sola: qué fue en realidad (para la planilla).
+public enum SubtipoRegistro: String, Codable, Sendable {
+    case ubicacion, polen, terminada, descartada, semillasPropias
+}
+
 // MARK: - Registro
 
 public struct Registro: Codable, Identifiable, Hashable, Sendable {
@@ -81,15 +86,37 @@ public struct Registro: Codable, Identifiable, Hashable, Sendable {
     public var nota: String?
     /// Agua usada en el riego (o en el riego con fertilizante), si se registró.
     public var aguaML: Int?
+    public var subtipo: SubtipoRegistro?
+    /// Fertilizante: ml totales y ml por litro que se usaron.
+    public var fertilizanteML: Double?
+    public var mlPorLitro: Double?
 
     public init(id: UUID = UUID(), fecha: Date, tipo: TipoRegistro,
-                producto: String? = nil, nota: String? = nil, aguaML: Int? = nil) {
+                producto: String? = nil, nota: String? = nil, aguaML: Int? = nil,
+                subtipo: SubtipoRegistro? = nil, fertilizanteML: Double? = nil, mlPorLitro: Double? = nil) {
         self.id = id
         self.fecha = fecha
         self.tipo = tipo
         self.producto = producto
         self.nota = nota
         self.aguaML = aguaML
+        self.subtipo = subtipo
+        self.fertilizanteML = fertilizanteML
+        self.mlPorLitro = mlPorLitro
+    }
+
+    /// El subtipo, o el que se deduce del texto en los registros viejos (de antes de que existiera).
+    public var subtipoEfectivo: SubtipoRegistro? {
+        if let subtipo { return subtipo }
+        guard tipo == .nota, let n = nota else { return nil }
+        switch n {
+        case "Lo llevé adentro": return .ubicacion
+        case "Junté polen": return .polen
+        case "Curado completo": return .terminada
+        case "Descartada": return .descartada
+        default:
+            return n.hasPrefix("Guardé ") && n.hasSuffix(" semillas propias") ? .semillasPropias : nil
+        }
     }
 }
 

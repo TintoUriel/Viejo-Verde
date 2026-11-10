@@ -12,6 +12,16 @@
     <key>NSCameraUsageDescription</key>
     <string>Viejo Verde usa la cámara para sacarle fotos a tus plantas y guardarlas en su historial.</string>
 
+    <!-- Sincronización con la planilla de Google en segundo plano (BGAppRefreshTask). -->
+    <key>BGTaskSchedulerPermittedIdentifiers</key>
+    <array>
+        <string>com.tinto.viejoverde.sync</string>
+    </array>
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>fetch</string>
+    </array>
+
     <!-- Solo vertical: se usa con una mano en el patio. -->
     <key>UISupportedInterfaceOrientations</key>
     <array>

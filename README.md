@@ -3,18 +3,23 @@
 App de iPhone para llevar el autocultivo (REPROCANN, patio en CABA): en qué etapa está cada planta,
 qué toca hacer hoy (con ml de agua y de fertilizante), recordatorios, semillas, polen y un asistente con Claude.
 
-SwiftUI · iOS 17+ · solo iPhone · sin backend: todo queda en el teléfono.
+SwiftUI · iOS 17+ · solo iPhone · sin backend: todo queda en el teléfono (y, si la activás, una copia
+de cada registro en tu planilla de Google: ver [`apps-script/README.md`](apps-script/README.md)).
 
 ## Estructura
 
 ```
 Sources/
   ViejoVerdeCore/      Lógica pura (solo Foundation), testeada: modelo, etapas, tareas, dosis,
-                       notificaciones, backup, pedido/respuesta de la API de Claude, guía.
+                       notificaciones, backup, pedido/respuesta de la API de Claude, guía,
+                       Sincronizacion/ (eventos para la planilla, cola local, formato del POST).
   ViejoVerde/          App SwiftUI: Almacen (JSON en Documents), vistas, servicios
-                       (Keychain, fotos, notificaciones, cliente de Claude).
+                       (Keychain, fotos, notificaciones, cliente de Claude, Sincronizador).
 Tests/ViejoVerdeCoreTests/
+apps-script/           Web App de Google Apps Script que escribe en la planilla (Code.gs + instrucciones).
 ```
+
+- Cola de la planilla: `Documents/outbox.json`. URL y token del Web App: en el llavero.
 
 - Datos: `Documents/datos.json` (escritura atómica). Fotos: `Documents/Fotos/*.jpg`.
 - API key de Anthropic: en el llavero (Keychain), nunca en el código ni en los backups.
@@ -85,6 +90,9 @@ Arrancá por **Ajustes → Debug → Cargar ejemplo** para tener plantas en toda
 10. **Cosechas** (Plantas → ⋯): totales, gramos por cosecha, por variedad y por temporada.
 11. **Línea de tiempo** (detalle de planta, con 2+ fotos): fotos en orden con día y etapa.
 12. **Chat**: queda guardado al cerrar la app ("Nuevo chat" lo borra).
+13. **Planilla de Google** (Ajustes): configurala con [`apps-script/README.md`](apps-script/README.md).
+    Regá una planta y mirá la hoja Registro; en modo avión, registrá algo: "Eventos pendientes" sube y baja
+    solo al volver la señal (o al reabrir la app). Los datos de ejemplo nunca se mandan.
 
 ## Notas
 

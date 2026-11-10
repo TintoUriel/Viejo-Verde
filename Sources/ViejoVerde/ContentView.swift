@@ -42,6 +42,7 @@ struct ContentView: View {
         }
         .onChange(of: fase) { _, nueva in
             if nueva == .active { almacen.alVolver() }
+            if nueva == .background { almacen.sync.programarSegundoPlano() }
         }
     }
 }

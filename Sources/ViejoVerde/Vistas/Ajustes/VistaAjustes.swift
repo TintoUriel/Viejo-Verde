@@ -18,10 +18,15 @@ struct VistaAjustes: View {
     @State private var confirmarBorrarTodo = false
     @State private var aviso: String?
 
+    @State private var urlPlanilla = ""
+    @State private var tokenPlanilla = ""
+    @State private var avisoPlanilla: String?
+
     var body: some View {
         NavigationStack {
             Form {
                 seccionAsistente
+                seccionPlanilla
                 seccionAvisos
                 seccionFertilizantes
                 seccionBackup
@@ -31,7 +36,9 @@ struct VistaAjustes: View {
                 #endif
                 Section {
                     LabeledContent("Versión", value: version)
-                    Text("Tus datos quedan solo en este iPhone. Lo único que sale es lo que le mandás al asistente.")
+                    Text(almacen.sync.activada
+                         ? "Tus datos quedan en este iPhone. Lo único que sale es lo que le mandás al asistente y lo que se anota en tu planilla de Google."
+                         : "Tus datos quedan solo en este iPhone. Lo único que sale es lo que le mandás al asistente.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -43,7 +50,77 @@ struct VistaAjustes: View {
             } message: {
                 Text(aviso ?? "")
             }
+            .alert("Planilla de Google",
+                   isPresented: Binding(get: { avisoPlanilla != nil }, set: { if !$0 { avisoPlanilla = nil } })) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(avisoPlanilla ?? "")
+            }
         }
+    }
+
+    // MARK: Planilla de Google
+
+    private var seccionPlanilla: some View {
+        let s = almacen.sync
+        return Section {
+            if s.configurada {
+                Toggle("Sincronizar", isOn: Binding(get: { s.activada }, set: { s.cambiarActivada($0) }))
+                LabeledContent("Web App", value: s.urlGuardada.map(acortar) ?? "—")
+                LabeledContent("Última sincronización OK",
+                               value: s.bandeja.ultimoOK.map { $0.formatted(date: .abbreviated, time: .shortened) } ?? "Nunca")
+                LabeledContent("Eventos pendientes", value: "\(s.bandeja.pendientes)")
+                if let error = s.bandeja.ultimoError {
+                    Label(error, systemImage: "exclamationmark.triangle.fill")
+                        .font(.footnote)
+                        .foregroundStyle(Tema.alerta)
+                }
+                if let progreso = s.progreso {
+                    HStack(spacing: 10) {
+                        ProgressView()
+                        Text(progreso).font(.footnote)
+                    }
+                }
+                Button("Probar conexión") {
+                    Task { avisoPlanilla = await s.probarConexion() }
+                }
+                .disabled(s.enviando)
+                Button("Sincronizar todo") {
+                    let datos = almacen.datos
+                    Task { avisoPlanilla = await s.sincronizarTodo(datos, hoy: Date()) }
+                }
+                .disabled(!s.activada || s.enviando || almacen.modoEjemplo)
+                Button("Borrar URL y token", role: .destructive) { s.borrarConfiguracion() }
+            } else {
+                TextField("https://script.google.com/macros/s/…/exec", text: $urlPlanilla)
+                    .keyboardType(.URL)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                SecureField("Token", text: $tokenPlanilla)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                Button("Guardar") {
+                    if let error = s.guardarConfiguracion(url: urlPlanilla, token: tokenPlanilla) {
+                        avisoPlanilla = error
+                    } else {
+                        urlPlanilla = ""
+                        tokenPlanilla = ""
+                        s.cambiarActivada(true)
+                    }
+                }
+                .disabled(urlPlanilla.isEmpty || tokenPlanilla.isEmpty)
+            }
+        } header: {
+            Text("Planilla de Google")
+        } footer: {
+            Text("Cada cosa que registrás se anota en las hojas Registro y Plantas. Se guarda primero en el iPhone y se manda cuando hay señal. Nunca se mandan fotos, la API key ni el chat. \"Sincronizar todo\" manda el historial completo: repetirlo no duplica nada.")
+        }
+    }
+
+    /// "script.google.com/…AbC123/exec".
+    private func acortar(_ url: String) -> String {
+        guard let u = URL(string: url), let host = u.host else { return url }
+        return "\(host)/…\(url.suffix(16))"
     }
 
     // MARK: Asistente
@@ -238,6 +315,7 @@ struct VistaAjustes: View {
         almacen.reemplazarTodo(con: b.datos)
         backupPendiente = nil
         aviso = "Backup importado: \(b.datos.plantas.count) plantas."
+            + (almacen.sync.activada ? " Para que la planilla quede igual, tocá \"Sincronizar todo\"." : "")
     }
 
     // MARK: Borrar todo

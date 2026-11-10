@@ -18,6 +18,8 @@ final class Almacen {
     private(set) var chat: [MensajeChat] = []
 
     @ObservationIgnored private var tareaAvisos: Task<Void, Never>?
+    /// Planilla de Google (cola local + envío).
+    let sync = Sincronizador.shared
 
     private static let archivoReal = "datos.json"
     private static let archivoEjemplo = "ejemplo.json"
@@ -69,16 +71,20 @@ final class Almacen {
         hoy = Date()
         programarAvisos(inmediato: true)
         Task { await actualizarClima() }
+        sync.alVolver(modoEjemplo ? nil : datos, hoy: hoy)
     }
 
-    /// Única puerta para modificar datos: aplica el cambio y guarda.
+    /// Única puerta para modificar datos: aplica el cambio, guarda y lo anota para la planilla.
     func cambiar(_ cambio: (inout Datos) -> Void) {
         hoy = Date()
+        let antes = datos
         cambio(&datos)
         guardar()
+        // Los datos de ejemplo nunca salen del teléfono.
+        if !modoEjemplo { sync.registrar(antes: antes, despues: datos, hoy: hoy) }
     }
 
-    /// Reemplaza todo (importar backup).
+    /// Reemplaza todo (importar backup). No genera eventos: para la planilla, después "Sincronizar todo".
     func reemplazarTodo(con nuevos: Datos) {
         datos = nuevos
         guardar()
@@ -172,6 +178,14 @@ final class Almacen {
         programarAvisos()
     }
 
+    /// Los datos reales leídos del disco (para la sincronización en segundo plano). Nil si no se pueden
+    /// leer (por ejemplo, con el teléfono bloqueado: datos.json tiene protección completa).
+    static func datosReales() -> Datos? {
+        let url = carpeta.appendingPathComponent(archivoReal)
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        return try? Backup.decodificador().decode(Datos.self, from: data)
+    }
+
     private static func leer(_ url: URL) -> (Datos, String?) {
         guard FileManager.default.fileExists(atPath: url.path) else { return (Datos(), nil) }
         do {
@@ -248,7 +262,12 @@ extension Almacen {
             let nota = dosis.flatMap { d in
                 d.fertilizante.map { _ in "\(Formato.numero(d.fertilizanteML)) ml en \(Formato.volumen(ml: d.aguaML))" }
             }
-            cambiar { $0.registrar(.fertilizante, en: id, fecha: ahora, producto: producto, nota: nota, aguaML: dosis?.aguaML) }
+            let conProducto = dosis?.fertilizante != nil
+            cambiar {
+                $0.registrar(.fertilizante, en: id, fecha: ahora, producto: producto, nota: nota, aguaML: dosis?.aguaML,
+                             fertilizanteML: conProducto ? dosis?.fertilizanteML : nil,
+                             mlPorLitro: conProducto ? dosis?.mlPorLitro : nil)
+            }
         case .neem:
             cambiar { $0.registrar(.neem, en: id, fecha: ahora, producto: "Jabón potásico con neem") }
         case .hembra:

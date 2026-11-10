@@ -57,15 +57,18 @@ public struct DosisTarea: Hashable, Sendable {
     public let aguaML: Int
     public let fertilizante: Fertilizante?
     public let fertilizanteML: Double
+    public let mlPorLitro: Double
 
-    public init(aguaML: Int, fertilizante: Fertilizante?, fertilizanteML: Double) {
+    public init(aguaML: Int, fertilizante: Fertilizante?, fertilizanteML: Double, mlPorLitro: Double = 0) {
         self.aguaML = aguaML
         self.fertilizante = fertilizante
         self.fertilizanteML = fertilizanteML
+        self.mlPorLitro = mlPorLitro
     }
 
     public init(_ d: Dosis) {
-        self.init(aguaML: d.aguaML, fertilizante: d.fertilizante, fertilizanteML: d.fertilizanteML)
+        self.init(aguaML: d.aguaML, fertilizante: d.fertilizante, fertilizanteML: d.fertilizanteML,
+                  mlPorLitro: d.mlPorLitro)
     }
 }
 
@@ -105,8 +108,7 @@ public enum Tareas {
                _ acciones: [AccionTarea], dosis: Dosis? = nil) {
             r.append(Tarea(id: Tarea.id(tipo, p.id), tipo: tipo, plantaID: p.id, plantaNombre: n,
                            titulo: titulo, detalle: detalle, urgente: urgente, acciones: acciones,
-                           dosis: dosis.map { DosisTarea(aguaML: $0.aguaML, fertilizante: $0.fertilizante,
-                                                         fertilizanteML: $0.fertilizanteML) }))
+                           dosis: dosis.map { DosisTarea($0) }))
         }
         func diasDesde(_ tipos: Set<TipoRegistro>, siNunca: Date?) -> Int? {
             guard let f = p.ultimaFecha(tipos) ?? siNunca else { return nil }

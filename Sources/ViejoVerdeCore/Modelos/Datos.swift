@@ -63,9 +63,12 @@ public struct Datos: Codable, Equatable, Sendable {
     }
 
     public mutating func registrar(_ tipo: TipoRegistro, en id: UUID, fecha: Date,
-                                   producto: String? = nil, nota: String? = nil, aguaML: Int? = nil) {
+                                   producto: String? = nil, nota: String? = nil, aguaML: Int? = nil,
+                                   subtipo: SubtipoRegistro? = nil,
+                                   fertilizanteML: Double? = nil, mlPorLitro: Double? = nil) {
         modificar(id) {
-            $0.registros.append(Registro(fecha: fecha, tipo: tipo, producto: producto, nota: nota, aguaML: aguaML))
+            $0.registros.append(Registro(fecha: fecha, tipo: tipo, producto: producto, nota: nota, aguaML: aguaML,
+                                         subtipo: subtipo, fertilizanteML: fertilizanteML, mlPorLitro: mlPorLitro))
         }
     }
 
@@ -89,7 +92,7 @@ public struct Datos: Codable, Equatable, Sendable {
     public mutating func moverAdentro(_ id: UUID, fecha: Date) {
         modificar(id) {
             $0.ubicacion = .interior
-            $0.registros.append(Registro(fecha: fecha, tipo: .nota, nota: "Lo llevé adentro"))
+            $0.registros.append(Registro(fecha: fecha, tipo: .nota, nota: "Lo llevé adentro", subtipo: .ubicacion))
         }
     }
 
@@ -108,7 +111,7 @@ public struct Datos: Codable, Equatable, Sendable {
         polenes.append(polen)
         modificar(id) {
             $0.polenJuntado = true
-            $0.registros.append(Registro(fecha: fecha, tipo: .nota, nota: "Junté polen"))
+            $0.registros.append(Registro(fecha: fecha, tipo: .nota, nota: "Junté polen", subtipo: .polen))
         }
         return polen
     }
@@ -134,14 +137,14 @@ public struct Datos: Codable, Equatable, Sendable {
     public mutating func terminar(_ id: UUID, fecha: Date) {
         modificar(id) {
             $0.estado = .terminada
-            $0.registros.append(Registro(fecha: fecha, tipo: .nota, nota: "Curado completo"))
+            $0.registros.append(Registro(fecha: fecha, tipo: .nota, nota: "Curado completo", subtipo: .terminada))
         }
     }
 
     public mutating func descartar(_ id: UUID, fecha: Date, nota: String? = nil) {
         modificar(id) {
             $0.estado = .descartada
-            $0.registros.append(Registro(fecha: fecha, tipo: .nota, nota: nota ?? "Descartada"))
+            $0.registros.append(Registro(fecha: fecha, tipo: .nota, nota: nota ?? "Descartada", subtipo: .descartada))
         }
     }
 
@@ -155,7 +158,7 @@ public struct Datos: Codable, Equatable, Sendable {
                                    tipo: p.tipo, semilla: .regular, cantidad: max(cantidad, 0),
                                    fechaCompra: fecha, propias: true, plantaMadreID: id)
         paquetes.append(pack)
-        registrar(.nota, en: id, fecha: fecha, nota: "Guardé \(cantidad) semillas propias")
+        registrar(.nota, en: id, fecha: fecha, nota: "Guardé \(cantidad) semillas propias", subtipo: .semillasPropias)
         return pack
     }
 

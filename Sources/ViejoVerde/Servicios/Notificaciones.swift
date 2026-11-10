@@ -62,6 +62,8 @@ final class DelegadoApp: NSObject, UIApplicationDelegate, UNUserNotificationCent
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        // Tiene que registrarse antes de que termine de arrancar la app.
+        Sincronizador.registrarTareaDeFondo()
         return true
     }
 
