@@ -1,12 +1,116 @@
 # Viejo Verde 🌱
 
-App de iPhone para llevar el autocultivo (REPROCANN, patio en CABA): en qué etapa está cada planta,
-qué toca hacer hoy (con ml de agua y de fertilizante), recordatorios, semillas, polen y un asistente con Claude.
+App para llevar el autocultivo (REPROCANN, patio en CABA): en qué etapa está cada planta, qué toca hacer
+hoy (con ml de agua y de fertilizante), clima, semillas, polen, cosechas y un asistente con Claude.
 
-SwiftUI · iOS 17+ · solo iPhone · sin backend: todo queda en el teléfono (y, si la activás, una copia
-de cada registro en tu planilla de Google: ver [`apps-script/README.md`](apps-script/README.md)).
+**Es una app web (PWA):** se abre en <https://tintouriel.github.io/Viejo-Verde/> y se instala en el iPhone
+desde Safari, sin firmas ni renovaciones. Sin backend: todo queda en el teléfono (y, si la activás, una
+copia de cada registro en tu planilla de Google: ver [`apps-script/README.md`](apps-script/README.md)).
+
+## Instalar en el iPhone
+
+1. Abrí <https://tintouriel.github.io/Viejo-Verde/> en **Safari**.
+2. **Compartir** (el cuadrado con la flecha) → **Agregar a inicio**.
+3. Abrila siempre desde ese ícono: así funciona sin internet, a pantalla completa, y el iPhone no borra
+   los datos (Safari puede borrar los de las páginas que no se visitan seguido).
+
+Cada push a `main` publica la versión nueva sola. En el teléfono aparece el cartel
+"Hay una versión nueva" → **Actualizar**.
+
+> Si borrás el ícono de la pantalla de inicio, se borran también los datos. Exportá un backup antes.
+
+### Pasar los datos desde la app de iPhone (Swift)
+
+1. En la app vieja: **Ajustes → Backup → Incluir fotos → Exportar backup** → guardalo en Archivos.
+2. En la web: **Ajustes → Backup → Importar backup** → elegí ese archivo. Es el mismo formato.
+3. Volvé a cargar la **API key** de Anthropic y la **URL y el token** de la planilla (no viajan en el backup).
+4. Si usás la planilla: **Ajustes → Planilla de Google → Sincronizar todo** (no duplica nada).
+
+El chat del asistente no se pasa (no está en el backup).
+
+## Qué cambió respecto de la app de iPhone
+
+- **Sin notificaciones.** La pestaña **Hoy** muestra lo que toca (el número rojo en la pestaña son las
+  tareas pendientes). Sexado, Top Bloom, tricomas, tallitos y frascos aparecen ahí como tareas.
+- La planilla se sincroniza al registrar algo, al abrir la app y cuando vuelve la señal (no en segundo plano).
+- La API key, la URL y el token de la planilla quedan en el almacenamiento del navegador del teléfono
+  (no en el llavero). Nunca van en los backups.
+- "Cargar datos de ejemplo" está siempre en Ajustes (antes solo en debug).
 
 ## Estructura
+
+```
+web/                   La app web (Vite + Preact + TypeScript).
+  src/core/            Lógica pura portada de ViejoVerdeCore, testeada: modelo, etapas, tareas, dosis,
+                       clima, planificador, estadísticas, backup, pedido/respuesta de Claude,
+                       sync/ (eventos para la planilla, cola local, formato del POST).
+  src/app/             Almacén (IndexedDB), fotos, servicios (clima, Claude, planilla), navegación.
+  src/vistas/          Pantallas: Hoy, Plantas, Detalle, Semillas, Asistente, Ajustes, Planificar, Cosechas.
+  test/                Los mismos casos que Tests/ViejoVerdeCoreTests (Vitest).
+apps-script/           Web App de Google Apps Script que escribe en la planilla (Code.gs + instrucciones).
+.github/workflows/     web.yml publica en GitHub Pages; ipa.yml compila la app de iPhone vieja.
+Sources/, Tests/       App de iPhone en SwiftUI (anterior). Se borra cuando la web esté probada.
+```
+
+- Datos: IndexedDB `viejo-verde` (clave `datos`, JSON igual al de los backups). Fotos: IndexedDB
+  `viejo-verde-fotos` (JPEG achicados a 2048 px).
+- Cola de la planilla: clave `bandeja`. Secretos (API key, URL y token): clave `secretos`.
+- Fechas: todo se cuenta en días de Buenos Aires (UTC−3), como en la app de Swift.
+
+## Desarrollo
+
+Necesitás Node 24.
+
+```powershell
+cd web
+npm install
+npm run dev        # http://localhost:5173/Viejo-Verde/ (con recarga al guardar)
+npm test           # tests de la lógica
+npm run build      # lo mismo que corre GitHub Actions antes de publicar
+```
+
+Para probarla en el iPhone desde la PC, `npm run dev -- --host` y abrí la IP de la PC en Safari
+(en modo desarrollo no hay modo sin conexión ni instalación; para eso, la versión publicada).
+
+## Qué probar
+
+Arrancá por **Ajustes → Probar la app → Cargar datos de ejemplo** para tener plantas en todas las etapas
+(no toca tus datos ni manda nada a la planilla; "Salir" arriba vuelve a lo tuyo).
+
+1. **Hoy**: fecha, consejo de temporada, clima de CABA (↻ para actualizar), resumen con cupo X/9 (en rojo
+   si te pasás) y tareas con botones. El macho en el patio aparece primero, en rojo. "Hoy no" la esconde
+   hasta mañana. **Regué las N** con 2 o más riegos pendientes. **Llovió** = riego en todas las del patio.
+2. **Plantas y detalle**: lista por estado con barra de etapas; ⊕ para agregar (desde un pack descuenta 1);
+   detalle con etapa, día/semana, dosis de hoy, Regué / Fertilicé / Neem / Nota o problema / Foto, sexo
+   (regulares), Polinicé una rama, Cosechar → A frascos → Terminar, semillas propias, historial editable
+   (tocá un registro), descartar y borrar. Con 2+ fotos: **Ver línea de tiempo**.
+3. **Semillas**: packs con −/+, **Germinar**, tocar para editar o borrar; polen (Usado / borrar), tips.
+4. **Planificar** (Hoy, abajo, o Plantas): fechas estimadas de una tanda y gráfico de plantas en flor por
+   semana contra el cupo de 9, con cuántas podrías germinar sin pasarte.
+5. **Cosechas** (Plantas): totales, gramos por cosecha, por variedad y por temporada.
+6. **Asistente**: cargá la API key en Ajustes, probá los chips y mandale una foto de una hoja.
+   📖 Guía = guía rápida offline. El chat queda guardado ("Nuevo chat" lo borra).
+7. **Backup**: Exportar (con o sin fotos: abre el menú de compartir → Guardar en Archivos), Importar.
+8. **Planilla de Google** (Ajustes): configurala con [`apps-script/README.md`](apps-script/README.md)
+   y tocá **Probar conexión**. En modo avión registrá algo: "Eventos pendientes" sube y baja solo al
+   volver la señal (o al reabrir la app).
+
+## Notas
+
+- Dosis de etiqueta por defecto: 2 ml/L para Top Veg y Top Bloom (la app usa la mitad). Ajustala en
+  Ajustes → Fertilizantes con lo que dice tu botella.
+- El asistente usa `claude-sonnet-5-5` (Messages API, versión `2026-10-21`) con fallback automático
+  si un clasificador rechaza el pedido. Se llama directo desde el teléfono con tu API key; cada mensaje
+  se cobra en tu cuenta de Anthropic.
+
+---
+
+## App de iPhone en SwiftUI (anterior)
+
+Queda en el repo hasta pasar los datos a la web. Necesita firmarse con Sideloadly y, con Apple ID gratis,
+la firma vence cada 7 días.
+
+### Estructura
 
 ```
 Sources/
@@ -25,7 +129,7 @@ apps-script/           Web App de Google Apps Script que escribe en la planilla 
 - API key de Anthropic: en el llavero (Keychain), nunca en el código ni en los backups.
 - Modo ejemplo (solo en debug, Ajustes → Debug): usa `ejemplo.json` aparte; tus datos no se tocan.
 
-## Tests de la lógica
+### Tests de la lógica
 
 En Windows (Swift para Windows + Build Tools de Visual Studio):
 
@@ -39,11 +143,11 @@ En WSL / Linux / Mac:
 SOLO_CORE=1 swift test
 ```
 
-## Instalar en el iPhone
+### Instalar en el iPhone
 
 Sin Mac no hay simulador. Hay dos caminos.
 
-### A. GitHub Actions + Sideloadly (sin WSL)
+#### A. GitHub Actions + Sideloadly (sin WSL)
 
 1. Cada `git push` a `main` dispara `.github/workflows/ipa.yml`: corre los tests, genera el proyecto de
    Xcode con XcodeGen (`project.yml`) en una Mac de GitHub y compila un `.ipa` sin firmar.
@@ -56,7 +160,7 @@ Sin Mac no hay simulador. Hay dos caminos.
 
 Con Apple ID gratis la firma dura 7 días: volvé a pasar el .ipa por Sideloadly para renovarla.
 
-### B. xtool desde WSL (requiere virtualización activada en el BIOS)
+#### B. xtool desde WSL (requiere virtualización activada en el BIOS)
 
 Ver `INSTALAR-EN-IPHONE.md` en el repo RedSegura:
 
@@ -64,39 +168,3 @@ Ver `INSTALAR-EN-IPHONE.md` en el repo RedSegura:
 cd "/mnt/c/Users/<usuario>/Documents/GitHub/Viejo Verde"
 xtool dev
 ```
-
-## Qué probar en el iPhone
-
-Arrancá por **Ajustes → Debug → Cargar ejemplo** para tener plantas en todas las etapas.
-
-1. **Plantas y detalle**: lista por estado con barra de etapas; + para agregar (desde un pack descuenta 1);
-   detalle con etapa, día/semana, barra con el marcador de hoy, dosis de hoy, consejos, Regué / Fertilicé /
-   Neem / Nota o problema / Foto, sexo (regulares), Polinicé una rama, Cosechar → A frascos → Terminar,
-   semillas propias, historial editable (tocá un registro), descartar y borrar.
-2. **Hoy**: fecha, consejo de temporada, resumen con cupo X/9 (en rojo si te pasás) y tareas con botones.
-   El macho en el patio aparece primero, en rojo. "Hoy no" la esconde hasta mañana.
-3. **Semillas**: packs con +/−, deslizar a la derecha para germinar, polen (deslizar para marcar usado), tips.
-4. **Notificaciones**: Ajustes → Probar una notificación (llega en 5 s). Resumen diario a la hora elegida
-   (9:00 por defecto) y avisos de sexado, Top Bloom, tricomas, tallitos y frascos.
-5. **Asistente**: cargá la API key en Ajustes, probá los chips y mandale una foto de una hoja.
-   Abajo (o con el botón Guía) está la guía rápida offline.
-6. **Backup**: Exportar (con o sin fotos) a Archivos, Borrar todo, Importar ese archivo.
-7. **Clima** (Hoy, arriba): pronóstico de CABA (Open-Meteo, sin clave). Si ayer llovió ≥ 5 mm no pide
-   regar las del patio; con ≥ 32 °C pide revisar todos los días; con humedad alta en floración aparece
-   "Revisá hongos". Botón **Llovió** = riego en todas las del patio. Deslizá hacia abajo para actualizar.
-8. **Regué las N** (Hoy): aparece con 2 o más riegos pendientes y los registra todos.
-9. **Planificar** (Hoy, abajo, o Plantas → ⋯): fechas estimadas de una tanda nueva y gráfico de plantas
-   en flor por semana contra el cupo de 9, con cuántas podrías germinar sin pasarte.
-10. **Cosechas** (Plantas → ⋯): totales, gramos por cosecha, por variedad y por temporada.
-11. **Línea de tiempo** (detalle de planta, con 2+ fotos): fotos en orden con día y etapa.
-12. **Chat**: queda guardado al cerrar la app ("Nuevo chat" lo borra).
-13. **Planilla de Google** (Ajustes): configurala con [`apps-script/README.md`](apps-script/README.md).
-    Regá una planta y mirá la hoja Registro; en modo avión, registrá algo: "Eventos pendientes" sube y baja
-    solo al volver la señal (o al reabrir la app). Los datos de ejemplo nunca se mandan.
-
-## Notas
-
-- Dosis de etiqueta por defecto: 2 ml/L para Top Veg y Top Bloom (la app usa la mitad). Ajustala en
-  Ajustes → Fertilizantes con lo que dice tu botella.
-- El asistente usa `claude-sonnet-5-5` (Messages API, versión `2026-10-21`) con fallback automático
-  si un clasificador rechaza el pedido. Cada mensaje se cobra en tu cuenta de Anthropic.

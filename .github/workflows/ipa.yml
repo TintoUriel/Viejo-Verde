@@ -3,6 +3,10 @@ name: Compilar IPA
 on:
   push:
     branches: [main]
+    # La app web se publica aparte (web.yml): sus cambios no gastan una Mac de GitHub.
+    paths-ignore:
+      - 'web/**'
+      - '.github/workflows/web.yml'
   workflow_dispatch:
 
 jobs:

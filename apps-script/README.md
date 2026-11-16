@@ -59,18 +59,18 @@ Planilla: <https://docs.google.com/spreadsheets/d/1kLFYUvD6-PsNVRxZ8u3o3uBfBvmuP
 5. Chequeo rápido: abrí esa URL en el navegador. Tiene que mostrar
    `{"ok":false,"error":"Este endpoint solo acepta POST desde Viejo Verde."}`. Si ves eso, está bien publicada.
 
-### 6. Cargarlo en el iPhone
+### 6. Cargarlo en la app
 
 1. En la app: **Ajustes → Planilla de Google**.
-2. Pegá la **URL** y el **token** → **Guardar** (queda guardado en el llavero del iPhone y la sincronización
-   se activa).
+2. Pegá la **URL** y el **token** → **Guardar** (queda guardado solo en el teléfono, nunca en los backups,
+   y la sincronización se activa).
 3. **Probar conexión** → tiene que decir "Conexión OK".
 4. **Sincronizar todo** (la primera vez): manda todo tu historial y la fila de cada planta. Si lo repetís,
    no duplica nada.
 
 Desde ahí, cada riego, fertilizante, nota, etc. se anota solo. Si no hay señal (el patio), queda en la cola
-del iPhone ("Eventos pendientes") y se manda cuando vuelve la conexión: al registrar otra cosa, al volver
-a abrir la app o en segundo plano.
+del teléfono ("Eventos pendientes") y se manda cuando vuelve la conexión: al registrar otra cosa, al volver
+a abrir la app o apenas vuelve la señal con la app abierta.
 
 ## Si cambiás el código del script
 
@@ -132,4 +132,4 @@ Google Drive en claude.ai y pedile que lea la planilla.
 ```
 
 Con `"accion": "probar"` solo valida el token. Los nombres salen de
-`Sources/ViejoVerdeCore/Sincronizacion/ModelosSync.swift`: si cambiás uno, cambialo en los dos lados.
+`web/src/core/sync/modelos.ts`: si cambiás uno, cambialo en los dos lados.
