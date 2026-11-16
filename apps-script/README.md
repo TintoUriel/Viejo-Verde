@@ -7,6 +7,15 @@ la planilla. El script escribe en dos hojas nuevas y no toca **Compras** ni **Ah
   nunca se editan ni se borran. Si corregís o borrás algo en la app, llega una fila "corrección" o
   "borrado" que dice qué ID corrige.
 - **Plantas**: una fila por planta con su estado actual (se actualiza sola).
+- **Estado** (oculta): una copia completa de los datos de la app. La app la sube unos segundos después de
+  cada cambio y la **baja al abrirse** si es más nueva que la del teléfono. Así la planilla sube y baja.
+  No la edites a mano.
+
+> **¿Ya tenías el script instalado?** Para que la app pueda bajar los datos hay que actualizarlo:
+> abrí **Extensiones → Apps Script**, reemplazá todo el código por el de [`Code.gs`](Code.gs), guardá, y
+> **Implementar → Gestionar implementaciones → ✏️ → Versión: Nueva versión → Implementar** (la URL y el
+> token no cambian). Después, en la app: **Ajustes → Planilla → Probar conexión** tiene que decir
+> "el script ya sube y baja la copia completa", y **Bajar de la planilla ahora** trae tus datos.
 
 Planilla: <https://docs.google.com/spreadsheets/d/1kLFYUvD6-PsNVRxZ8u3o3uBfBvmuP5z2Il2V0iJkwhI/edit>
 
@@ -59,13 +68,19 @@ Planilla: <https://docs.google.com/spreadsheets/d/1kLFYUvD6-PsNVRxZ8u3o3uBfBvmuP
 5. Chequeo rápido: abrí esa URL en el navegador. Tiene que mostrar
    `{"ok":false,"error":"Este endpoint solo acepta POST desde Viejo Verde."}`. Si ves eso, está bien publicada.
 
+Opcional: elegí **`testEstado`** → **Ejecutar** para probar la copia completa (guarda una chiquita, la lee
+y la borra; si ya hay una copia de verdad, no la toca).
+
 ### 6. Cargarlo en la app
 
 1. En la app: **Ajustes → Planilla de Google**.
 2. Pegá la **URL** y el **token** → **Guardar** (queda guardado solo en el teléfono, nunca en los backups,
    y la sincronización se activa).
 3. **Probar conexión** → tiene que decir "Conexión OK".
-4. **Sincronizar todo** (la primera vez): manda todo tu historial y la fila de cada planta. Si lo repetís,
+4. Al guardar, la app baja lo que haya en la planilla. Si todavía no hay copia completa (por ejemplo, con lo
+   que mandó la app de iPhone), **rearma tus datos leyendo Registro y Plantas**: packs, plantas, historial
+   y polen (las fotos no, porque nunca viajan). Después sube la copia completa.
+5. **Sincronizar todo** (opcional): manda todo tu historial y la fila de cada planta. Si lo repetís,
    no duplica nada.
 
 Desde ahí, cada riego, fertilizante, nota, etc. se anota solo. Si no hay señal (el patio), queda en la cola
@@ -108,8 +123,9 @@ Google Drive en claude.ai y pedile que lea la planilla.
   producto, dosis, tus notas y la versión de la app.
 - No: fotos (solo "saqué una foto"), la API key de Anthropic, el chat con el asistente, ajustes, ni nada
   del modo ejemplo.
-- Importar un backup o "Borrar todos los datos" no manda nada (para no llenar el Registro de borrados).
-  Después de importar, tocá **Sincronizar todo**.
+- Importar un backup o "Borrar todos los datos" no anota nada en Registro (para no llenarlo de borrados),
+  pero sí reemplaza la copia completa. Después de importar, tocá **Sincronizar todo**.
+- Si usás la app en dos lugares (por ejemplo el iPhone y la PC), gana el último cambio: no se mezclan.
 
 ## Formato del pedido (para tocar el código)
 
@@ -131,5 +147,6 @@ Google Drive en claude.ai y pedile que lea la planilla.
 }
 ```
 
-Con `"accion": "probar"` solo valida el token. Los nombres salen de
+Con `"accion": "probar"` solo valida el token. La copia completa usa `"accion": "guardarEstado"` y
+`"accion": "leerEstado"` (ver el comentario al principio de `Code.gs`). Los nombres salen de
 `web/src/core/sync/modelos.ts`: si cambiás uno, cambialo en los dos lados.

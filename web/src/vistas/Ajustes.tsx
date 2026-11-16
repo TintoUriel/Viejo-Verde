@@ -1,6 +1,6 @@
 import { useSignal } from '@preact/signals'
 import { useEffect, useState } from 'preact/hooks'
-import { borrarTodo, cambiar, datos, entrarModoEjemplo, modoEjemplo, salirModoEjemplo } from '../app/almacen'
+import { alVolver, borrarTodo, cambiar, datos, entrarModoEjemplo, modoEjemplo, salirModoEjemplo } from '../app/almacen'
 import { aplicarBackup, elegirBackup, exportarBackup } from '../app/backup'
 import { estaPersistido, pedirPersistencia } from '../app/db'
 import { guardarSecretos, secretos, VERSION_APP } from '../app/servicios'
@@ -84,12 +84,15 @@ function SeccionPlanilla() {
 
   return (
     <Seccion titulo="Planilla de Google"
-      pie={'Cada cosa que registrás se anota en las hojas Registro y Plantas. Se guarda primero en el teléfono y se manda cuando hay señal. Nunca se mandan fotos, la API key ni el chat. "Sincronizar todo" manda el historial completo: repetirlo no duplica nada.'}>
+      pie={'Sube y baja: cada cosa que registrás se anota en las hojas Registro y Plantas, y la planilla guarda además una copia completa de tus datos. Al abrir la app, si la copia de la planilla es más nueva, se baja sola. Las fotos quedan en cada teléfono; nunca se mandan fotos, la API key ni el chat. "Sincronizar todo" manda el historial completo: repetirlo no duplica nada.'}>
       {s.configurada ? (
         <>
           <div class="fila">
             <span style={{ flex: 1 }}>Sincronizar</span>
-            <Interruptor etiqueta="Sincronizar" valor={s.activada} onCambio={(v) => void Sincronizador.cambiarActivada(v)} />
+            <Interruptor etiqueta="Sincronizar" valor={s.activada} onCambio={async (v) => {
+              await Sincronizador.cambiarActivada(v)
+              if (v) await alVolver(true)
+            }} />
           </div>
           <div class="fila"><span style={{ flex: 1 }}>Web App</span><span class="valor" style={{ fontSize: '14px' }}>{acortar(secretos.value.planillaURL ?? '')}</span></div>
           <div class="fila"><span style={{ flex: 1 }}>Última sincronización OK</span><span class="valor">{s.ultimoOK ? Formato.fechaHora(s.ultimoOK) : 'Nunca'}</span></div>
@@ -99,9 +102,29 @@ function SeccionPlanilla() {
             <span class="valor">{s.pendientes}</span>
           </div>
           {s.ultimoError && <div class="fila"><span class="peligro-texto con-icono" style={{ fontSize: '14px' }}><Icono nombre="alerta" tam={18} />{s.ultimoError}</span></div>}
+          <div class="fila">
+            <span style={{ flex: 1 }}>Copia completa</span>
+            <span class="valor">{s.copiaPendiente ? 'Cambios por subir' : 'Al día'}</span>
+          </div>
+          <div class="fila"><span style={{ flex: 1 }}>Última bajada</span><span class="valor">{s.ultimaBajada ? Formato.fechaHora(s.ultimaBajada) : 'Nunca'}</span></div>
+          {s.errorCopia && <div class="fila"><span class="peligro-texto con-icono" style={{ fontSize: '14px' }}><Icono nombre="alerta" tam={18} />{s.errorCopia}</span></div>}
           {s.progreso && <div class="fila"><Girando /><span style={{ fontSize: '14px' }}>{s.progreso}</span></div>}
           <button class="fila accion" disabled={s.enviando || ocupado.value} onClick={() => conCarga(() => Sincronizador.probarConexion())}>
             Probar conexión
+          </button>
+          <button class="fila accion" disabled={!s.activada || ocupado.value || modoEjemplo.value}
+            onClick={() => conCarga(async () => {
+              const r = await Sincronizador.bajarCopia(true)
+              return {
+                bajado: 'Listo: bajé la copia de la planilla.',
+                reconstruido: 'Listo: rearmé tus datos con lo que había en la planilla.',
+                subido: 'Lo de este teléfono era más nuevo: lo subí a la planilla.',
+                nada: 'Ya estaba todo al día.',
+                error: estadoSync.value.errorCopia ?? 'No pude bajar la copia.',
+                omitido: 'Activá la sincronización primero.',
+              }[r]
+            })}>
+            <Icono nombre="importar" />Bajar de la planilla ahora
           </button>
           <button class="fila accion" disabled={!s.activada || s.enviando || ocupado.value || modoEjemplo.value}
             onClick={() => conCarga(() => Sincronizador.sincronizarTodo(datos.value, new Date()))}>
@@ -131,6 +154,7 @@ function SeccionPlanilla() {
             setToken('')
             await Sincronizador.cambiarActivada(true)
             avisar('Planilla configurada')
+            await alVolver(true)
           }}>Guardar</button>
         </>
       )}

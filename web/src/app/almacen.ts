@@ -14,6 +14,7 @@ import { DB, pedirPersistencia } from './db'
 import { Fotos } from './fotos'
 import { Clima } from './servicios'
 import { Sincronizador } from './sincronizador'
+import { avisar } from './ui'
 
 /** Estado de la app. Se guarda en IndexedDB después de cada cambio.
  *  El modo ejemplo usa otra clave ("ejemplo") y nunca toca los datos reales. */
@@ -58,16 +59,34 @@ export async function cargar(): Promise<void> {
   clima.value = await Clima.cache()
   chat.value = await leerChat('chat')
   await Sincronizador.cargar()
+  Sincronizador.configurarCopia({
+    // Los datos de ejemplo nunca suben ni se pisan con la copia de la planilla.
+    obtener: () => (modoEjemplo.value ? undefined : datos.value),
+    aplicar: aplicarCopia,
+  })
   cargado.value = true
   void pedirPersistencia()
-  alVolver()
+  void alVolver()
 }
 
-/** Al volver a la app (o al abrirla): actualiza el día, el clima y manda lo pendiente a la planilla. */
-export function alVolver(): void {
+/** Al volver a la app (o al abrirla): actualiza el día y el clima, baja la copia de la planilla si es
+ *  más nueva y después manda lo pendiente. */
+export async function alVolver(forzarBajada = false): Promise<void> {
   hoy.value = new Date()
   void actualizarClima()
+  if (!modoEjemplo.value) {
+    const r = await Sincronizador.bajarCopia(forzarBajada)
+    if (r === 'bajado') avisar('Datos actualizados desde la planilla')
+    if (r === 'reconstruido') avisar('Datos recuperados de la planilla')
+  }
   Sincronizador.alVolver(modoEjemplo.value ? undefined : datos.value, hoy.value)
+}
+
+/** Reemplaza los datos con la copia de la planilla. No genera eventos (ya están en la planilla). */
+function aplicarCopia(d: Datos): void {
+  if (modoEjemplo.value) return
+  datos.value = d
+  guardar()
 }
 
 /** Baja el pronóstico si el que hay es viejo. */
@@ -90,20 +109,28 @@ export function cambiar(cambio: (d: Datos) => void): void {
   datos.value = despues
   guardar()
   // Los datos de ejemplo nunca salen del teléfono.
-  if (!modoEjemplo.value) Sincronizador.registrar(antes, despues, hoy.value)
+  if (!modoEjemplo.value) {
+    Sincronizador.registrar(antes, despues, hoy.value)
+    Sincronizador.marcarCambio()
+  }
 }
 
-/** Reemplaza todo (importar backup). No genera eventos: para la planilla, después "Sincronizar todo". */
+/** Reemplaza todo (importar backup). No genera eventos: para la planilla, después "Sincronizar todo".
+ *  Sí actualiza la copia completa de la planilla. */
 export function reemplazarTodo(nuevos: Datos): void {
   datos.value = nuevos
   guardar()
+  if (!modoEjemplo.value) Sincronizador.marcarCambio()
 }
 
-/** Borra todos los datos y las fotos. */
+/** Borra todos los datos y las fotos (también de la copia de la planilla; el Registro queda). */
 export async function borrarTodo(): Promise<void> {
   datos.value = datosVacios()
   guardar()
-  if (!modoEjemplo.value) await Fotos.limpiar([])
+  if (!modoEjemplo.value) {
+    Sincronizador.marcarCambio()
+    await Fotos.limpiar([])
+  }
 }
 
 export function borrarPlanta(id: string): void {

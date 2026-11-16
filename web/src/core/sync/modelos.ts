@@ -98,6 +98,16 @@ export const CuerpoSync = {
   prueba(token: string): string {
     return aJSON({ token, accion: 'probar', eventos: [], plantas: [] })
   },
+
+  /** Pide la copia completa (o, si todavía no hay, las filas de Registro y Plantas). */
+  leerEstado(token: string): string {
+    return aJSON({ token, accion: 'leerEstado' })
+  },
+
+  /** Guarda la copia completa de los datos (JSON) con la fecha del último cambio. */
+  guardarEstado(token: string, estado: string, actualizado: Date): string {
+    return aJSON({ token, accion: 'guardarEstado', estado, actualizado })
+  },
 }
 
 /** Respuesta del Apps Script. */
@@ -108,6 +118,15 @@ export interface RespuestaSync {
   repetidos?: number
   invalidos?: number
   plantas?: number
+  /** Probar conexión: true si el script ya sabe guardar y devolver la copia completa. */
+  prueba?: boolean
+  /** leerEstado: la copia (JSON) o null si todavía no hay. Undefined = script viejo. */
+  estado?: string | null | boolean
+  actualizado?: string | null
+  filasRegistro?: Record<string, unknown>[]
+  filasPlantas?: Record<string, unknown>[]
+  /** guardarEstado: false si la planilla ya tenía una copia más nueva. */
+  guardado?: boolean
 }
 
 export type ErrorSync =
@@ -118,7 +137,7 @@ export type ErrorSync =
 
 export function mensajeErrorSync(e: ErrorSync): string {
   switch (e.tipo) {
-    case 'red': return `Sin conexión: ${e.mensaje}`
+    case 'red': return e.mensaje === 'sin internet' || e.mensaje === 'tardó demasiado' ? `Sin conexión: ${e.mensaje}.` : `No pude llegar a la planilla (${e.mensaje}). Si tenés internet, revisá que la URL sea la del Web App y que esté publicado con acceso "Cualquier persona".`
     case 'http': return `La planilla respondió con error ${e.status}.`
     case 'noEsJSON': return 'La URL no devolvió JSON. Revisá que sea la del Web App (termina en /exec) y que el acceso sea "Cualquier persona".'
     case 'servidor': return `La planilla dijo: ${e.mensaje}`

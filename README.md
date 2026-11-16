@@ -32,7 +32,11 @@ El chat del asistente no se pasa (no está en el backup).
 
 - **Sin notificaciones.** La pestaña **Hoy** muestra lo que toca (el número rojo en la pestaña son las
   tareas pendientes). Sexado, Top Bloom, tricomas, tallitos y frascos aparecen ahí como tareas.
-- La planilla se sincroniza al registrar algo, al abrir la app y cuando vuelve la señal (no en segundo plano).
+- **La planilla sube y baja.** Cada cambio se anota en Registro y además se guarda una copia completa en
+  la planilla; al abrir la app, si esa copia es más nueva, se baja sola. Si la planilla todavía no tiene
+  copia, la app rearma tus datos leyendo Registro y Plantas (por ejemplo, lo que mandó la app de iPhone).
+  Las fotos no viajan: quedan en cada teléfono. Hay que actualizar el script una vez (ver
+  [`apps-script/README.md`](apps-script/README.md)).
 - La API key, la URL y el token de la planilla quedan en el almacenamiento del navegador del teléfono
   (no en el llavero). Nunca van en los backups.
 - "Cargar datos de ejemplo" está siempre en Ajustes (antes solo en debug).
@@ -93,7 +97,8 @@ Arrancá por **Ajustes → Probar la app → Cargar datos de ejemplo** para tene
 7. **Backup**: Exportar (con o sin fotos: abre el menú de compartir → Guardar en Archivos), Importar.
 8. **Planilla de Google** (Ajustes): configurala con [`apps-script/README.md`](apps-script/README.md)
    y tocá **Probar conexión**. En modo avión registrá algo: "Eventos pendientes" sube y baja solo al
-   volver la señal (o al reabrir la app).
+   volver la señal (o al reabrir la app). **Bajar de la planilla ahora** trae la copia completa (o la
+   rearma desde Registro y Plantas la primera vez).
 
 ## Notas
 

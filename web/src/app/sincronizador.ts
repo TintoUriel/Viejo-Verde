@@ -1,10 +1,12 @@
 import { signal } from '@preact/signals'
 import { Calendario } from '../core/calendario'
-import type { Datos } from '../core/datos'
+import { leerDatos, type Datos } from '../core/datos'
 import { Bandeja } from '../core/sync/bandeja'
+import { decidir } from '../core/sync/copia'
 import { Eventos } from '../core/sync/eventos'
 import { CuerpoSync, mensajeErrorSync } from '../core/sync/modelos'
-import { aJSON } from '../core/util'
+import { limpiarFila, reconstruir, tieneDatos, type FilaPlanta, type FilaRegistro } from '../core/sync/reconstruir'
+import { aJSON, iso, leerFecha } from '../core/util'
 import { DB } from './db'
 import { ClienteSync, guardarSecretos, secretos, VERSION_APP } from './servicios'
 
@@ -14,6 +16,9 @@ import { ClienteSync, guardarSecretos, secretos, VERSION_APP } from './servicios
  * Todo evento se guarda primero en la cola local y después se intenta mandar: al registrarlo, al volver
  * a la app y cuando vuelve la conexión. Si falla, queda en la cola y se reintenta con backoff exponencial.
  * Nunca bloquea la pantalla.
+ *
+ * Además mantiene una copia completa de los datos en la planilla (hoja oculta "Estado"): se sube unos
+ * segundos después de cada cambio y se baja al abrir la app si la de la planilla es más nueva.
  */
 
 export interface EstadoSync {
@@ -25,15 +30,35 @@ export interface EstadoSync {
   ultimoError?: string
   /** Texto de progreso de "Sincronizar todo". */
   progreso?: string
+  /** Hay cambios de este teléfono que todavía no están en la copia de la planilla. */
+  copiaPendiente: boolean
+  ultimaBajada?: Date
+  errorCopia?: string
 }
+
+/** Fechas de la copia completa (se guardan en IndexedDB). */
+interface MetaCopia {
+  cambiado?: string
+  sincronizado?: string
+  bajada?: string
+}
+
+export type ResultadoBajada = 'bajado' | 'reconstruido' | 'subido' | 'nada' | 'error' | 'omitido'
 
 let bandeja = new Bandeja()
 let activada = false
 let enviando = false
 let progreso: string | undefined
 let reintento: ReturnType<typeof setTimeout> | undefined
+let meta: MetaCopia = {}
+let errorCopia: string | undefined
+let subida: ReturnType<typeof setTimeout> | undefined
+let subiendo = false
+let ultimoIntentoBajada = 0
+/** Cómo leer los datos actuales y cómo reemplazarlos (los da el almacén; undefined en modo ejemplo). */
+let copia: { obtener: () => Datos | undefined; aplicar: (d: Datos) => void } | undefined
 
-export const estadoSync = signal<EstadoSync>({ activada: false, configurada: false, enviando: false, pendientes: 0 })
+export const estadoSync = signal<EstadoSync>({ activada: false, configurada: false, enviando: false, pendientes: 0, copiaPendiente: false })
 
 function credenciales(): { url: string; token: string } | undefined {
   const s = secretos.value
@@ -44,8 +69,18 @@ function refrescar(): void {
   estadoSync.value = {
     activada, configurada: credenciales() !== undefined, enviando, pendientes: bandeja.pendientes,
     ultimoOK: bandeja.ultimoOK, ultimoError: bandeja.ultimoError, progreso,
+    copiaPendiente: meta.cambiado !== undefined && meta.cambiado !== meta.sincronizado,
+    ultimaBajada: meta.bajada ? new Date(meta.bajada) : undefined,
+    errorCopia,
   }
 }
+
+async function guardarMeta(): Promise<void> {
+  refrescar()
+  await DB.guardar('sync.copia', meta)
+}
+
+const fechaMeta = (s: string | undefined) => (s ? new Date(s) : undefined)
 
 async function guardarBandeja(): Promise<void> {
   refrescar()
@@ -65,7 +100,122 @@ export const Sincronizador = {
       }
     }
     activada = (await DB.leer<boolean>('sync.activada')) ?? false
+    meta = (await DB.leer<MetaCopia>('sync.copia')) ?? {}
     refrescar()
+  },
+
+  configurarCopia(c: { obtener: () => Datos | undefined; aplicar: (d: Datos) => void }): void {
+    copia = c
+  },
+
+  // ─── Copia completa ───
+
+  /** Anota que los datos cambiaron en este teléfono y programa la subida de la copia. */
+  marcarCambio(): void {
+    meta.cambiado = iso(new Date())
+    void guardarMeta()
+    programarSubida()
+  },
+
+  /** Sube la copia completa. Si la planilla tiene una más nueva, no la pisa: la baja. */
+  async subirCopia(): Promise<boolean> {
+    const c = credenciales()
+    const d = copia?.obtener()
+    if (!activada || !c || !d || subiendo) return false
+    subiendo = true
+    const cambiado = meta.cambiado ?? iso(new Date())
+    try {
+      const r = await ClienteSync.enviar(CuerpoSync.guardarEstado(c.token, aJSON(d), new Date(cambiado)), c.url)
+      if (!r.ok) {
+        errorCopia = mensajeErrorSync(r.error)
+        refrescar()
+        return false
+      }
+      if (r.valor.guardado === undefined) {
+        errorCopia = 'Actualizá el script de la planilla (ver Ajustes) para guardar la copia completa.'
+        refrescar()
+        return false
+      }
+      errorCopia = undefined
+      if (!r.valor.guardado) {
+        // Otro dispositivo guardó algo más nuevo: gana ese.
+        subiendo = false
+        await Sincronizador.bajarCopia(true)
+        return false
+      }
+      meta.cambiado = meta.cambiado ?? cambiado
+      meta.sincronizado = cambiado
+      await guardarMeta()
+      // Si hubo cambios mientras subía, queda otra subida en camino.
+      if (meta.cambiado !== meta.sincronizado) programarSubida()
+      return true
+    } finally {
+      subiendo = false
+    }
+  },
+
+  /** Al abrir la app: baja la copia si la de la planilla es más nueva (o la rearma la primera vez). */
+  async bajarCopia(forzar = false): Promise<ResultadoBajada> {
+    const c = credenciales()
+    const actual = copia?.obtener()
+    if (!activada || !c || !actual) return 'omitido'
+    // Volver a la app y recuperar la señal pueden llegar juntos: una sola bajada.
+    if (!forzar && Date.now() - ultimoIntentoBajada < 20_000) return 'omitido'
+    ultimoIntentoBajada = Date.now()
+
+    const r = await ClienteSync.enviar(CuerpoSync.leerEstado(c.token), c.url)
+    if (!r.ok) {
+      errorCopia = mensajeErrorSync(r.error)
+      refrescar()
+      return 'error'
+    }
+    const v = r.valor
+    if (v.estado === undefined || typeof v.estado === 'boolean') {
+      errorCopia = 'Actualizá el script de la planilla (ver Ajustes) para que la app pueda bajar los datos.'
+      refrescar()
+      return 'error'
+    }
+    errorCopia = undefined
+    meta.bajada = iso(new Date())
+    const remoto = typeof v.actualizado === 'string' ? fechaSegura(v.actualizado) : undefined
+    const decision = decidir(
+      { tieneDatos: tieneDatos(actual), cambiado: fechaMeta(meta.cambiado), sincronizado: fechaMeta(meta.sincronizado) },
+      { hayCopia: typeof v.estado === 'string', actualizado: remoto },
+    )
+    try {
+      switch (decision) {
+        case 'bajar': {
+          const d = leerDatos(JSON.parse(v.estado as string))
+          copia?.aplicar(d)
+          meta.cambiado = iso(remoto!)
+          meta.sincronizado = meta.cambiado
+          await guardarMeta()
+          return 'bajado'
+        }
+        case 'reconstruir': {
+          const d = reconstruir(
+            (v.filasRegistro ?? []).map((f) => limpiarFila<FilaRegistro>(f)),
+            (v.filasPlantas ?? []).map((f) => limpiarFila<FilaPlanta>(f)),
+          )
+          await guardarMeta()
+          if (!tieneDatos(d)) return 'nada'
+          copia?.aplicar(d)
+          // Desde ahora la planilla tiene la copia completa.
+          Sincronizador.marcarCambio()
+          return 'reconstruido'
+        }
+        case 'subir':
+          await guardarMeta()
+          return (await Sincronizador.subirCopia()) ? 'subido' : 'error'
+        case 'nada':
+          await guardarMeta()
+          return 'nada'
+      }
+    } catch (e) {
+      errorCopia = `No pude leer la copia de la planilla: ${e instanceof Error ? e.message : String(e)}`
+      refrescar()
+      return 'error'
+    }
   },
 
   // ─── Configuración ───
@@ -182,7 +332,11 @@ export const Sincronizador = {
     const c = credenciales()
     if (!c) return 'Primero guardá la URL y el token.'
     const r = await ClienteSync.enviar(CuerpoSync.prueba(c.token), c.url)
-    return r.ok ? 'Conexión OK: la planilla responde y el token es correcto.' : mensajeErrorSync(r.error)
+    if (!r.ok) return mensajeErrorSync(r.error)
+    if (r.valor.estado !== true) {
+      return 'La planilla responde y el token es correcto, pero el script es el viejo: actualizalo para que la app pueda bajar los datos (Ajustes → Planilla).'
+    }
+    return 'Conexión OK: la planilla responde, el token es correcto y el script ya sube y baja la copia completa.'
   },
 
   /** Manda todo el historial y la fila de cada planta. Como los IDs son estables, repetirlo no duplica nada. */
@@ -219,6 +373,20 @@ function encolarEtapas(datos: Datos, hoy: Date): void {
   // La fila de la planta también cambia de etapa.
   const ids = new Set(nuevas.map((e) => e.plantaID))
   bandeja.encolarPlantas(datos.plantas.filter((p) => ids.has(p.id)).map((p) => Eventos.fila(p, hoy)))
+}
+
+/** Sube la copia unos segundos después del último cambio (varios cambios seguidos, una sola subida). */
+function programarSubida(): void {
+  if (subida) clearTimeout(subida)
+  subida = setTimeout(() => void Sincronizador.subirCopia(), 2500)
+}
+
+function fechaSegura(s: string): Date | undefined {
+  try {
+    return leerFecha(s)
+  } catch {
+    return undefined
+  }
 }
 
 /** Reintento automático mientras la app está abierta (el backoff dice cuándo). */

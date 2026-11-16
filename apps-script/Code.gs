@@ -1,10 +1,11 @@
 /**
  * Viejo Verde → Google Sheets.
  *
- * Web App que recibe lotes de eventos desde la app del iPhone y los escribe en dos hojas:
+ * Web App que recibe lotes de eventos desde la app y los escribe en dos hojas:
  *   - "Registro": log de solo agregar (una fila por evento, nunca se edita ni se borra).
  *   - "Plantas":  estado actual, una fila por planta (upsert por Planta ID).
- * Las hojas "Compras" y "Ahorro" no se tocan.
+ * Además guarda una copia completa de los datos de la app en la hoja oculta "Estado", para que la
+ * app la baje al abrirse (sincronización en los dos sentidos). Las hojas "Compras" y "Ahorro" no se tocan.
  *
  * Pedido (POST, JSON):
  *   {
@@ -18,6 +19,13 @@
  *   }
  * Fechas: ISO 8601 (UTC). Se escriben en hora de Buenos Aires.
  *
+ * Copia completa:
+ *   {"token", "accion": "guardarEstado", "estado": "<JSON de los datos>", "actualizado": "<ISO>"}
+ *     → {"ok": true, "guardado": true}  (o guardado: false si la planilla ya tenía una más nueva)
+ *   {"token", "accion": "leerEstado"}
+ *     → {"ok": true, "estado": "<JSON>" | null, "actualizado": "<ISO>" | null,
+ *        "filasRegistro": [...], "filasPlantas": [...]}   (las filas, solo si todavía no hay copia)
+ *
  * Respuesta: {"ok": true, "agregados": n, "repetidos": n, "invalidos": n, "plantas": n}
  *         o  {"ok": false, "error": "…"}
  */
@@ -25,12 +33,25 @@
 const ID_PLANILLA = '1kLFYUvD6-PsNVRxZ8u3o3uBfBvmuP5z2Il2V0iJkwhI';
 const HOJA_REGISTRO = 'Registro';
 const HOJA_PLANTAS = 'Plantas';
+const HOJA_ESTADO = 'Estado';
+/** Una celda admite 50.000 caracteres: la copia se parte en pedazos más chicos. */
+const LARGO_PEDAZO = 40000;
 const ZONA = 'America/Argentina/Buenos_Aires';
 const MAX_EVENTOS_POR_LOTE = 500;
 
 const COLUMNAS_REGISTRO = [
   'ID evento', 'Fecha y hora', 'Tipo', 'Planta ID', 'Planta', 'Variedad', 'Auto/Foto', 'Etapa',
   'Día de cultivo', 'Cantidad', 'Unidad', 'Producto', 'Dosis (ml/L)', 'Nota', 'Versión app',
+];
+
+/** Claves del JSON de cada columna (las mismas que manda la app), para devolver las filas. */
+const CLAVES_REGISTRO = [
+  'id', 'fecha', 'tipo', 'plantaID', 'planta', 'variedad', 'autoFoto', 'etapa', 'dia', 'cantidad', 'unidad',
+  'producto', 'dosis', 'nota', 'app',
+];
+const CLAVES_PLANTAS = [
+  'id', 'nombre', 'variedad', 'autoFoto', 'semilla', 'sexo', 'ubicacion', 'litros', 'germinacion', 'etapa', 'dia',
+  'ultimoRiego', 'ultimoFertilizante', 'ultimoNeem', 'estado', 'gramosHumedos', 'gramosSecos', 'notas', 'actualizado',
 ];
 
 const COLUMNAS_PLANTAS = [
@@ -87,7 +108,13 @@ function doPost(e) {
     const pedido = leerPedido_(e);
     validarToken_(pedido.token);
     if (pedido.accion === 'probar') {
-      return responder_({ ok: true, prueba: true });
+      return responder_({ ok: true, prueba: true, estado: true });
+    }
+    if (pedido.accion === 'leerEstado') {
+      return responder_(leerEstado_(planilla_()));
+    }
+    if (pedido.accion === 'guardarEstado') {
+      return conLock_(function () { return guardarEstado_(planilla_(), pedido.estado, pedido.actualizado); });
     }
     const eventos = Array.isArray(pedido.eventos) ? pedido.eventos : [];
     const plantas = Array.isArray(pedido.plantas) ? pedido.plantas : [];
@@ -95,21 +122,28 @@ function doPost(e) {
       return responder_({ ok: false, error: 'Lote demasiado grande (máximo ' + MAX_EVENTOS_POR_LOTE + ').' });
     }
 
-    const lock = LockService.getScriptLock();
-    if (!lock.tryLock(30000)) {
-      return responder_({ ok: false, error: 'La planilla está ocupada, reintentá.' });
-    }
-    try {
+    return conLock_(function () {
       const ss = planilla_();
       const r = agregarEventos_(crearHoja_(ss, HOJA_REGISTRO, COLUMNAS_REGISTRO), eventos);
       const n = actualizarPlantas_(crearHoja_(ss, HOJA_PLANTAS, COLUMNAS_PLANTAS), plantas);
       SpreadsheetApp.flush();
-      return responder_({ ok: true, agregados: r.agregados, repetidos: r.repetidos, invalidos: r.invalidos, plantas: n });
-    } finally {
-      lock.releaseLock();
-    }
+      return { ok: true, agregados: r.agregados, repetidos: r.repetidos, invalidos: r.invalidos, plantas: n };
+    });
   } catch (err) {
     return responder_({ ok: false, error: String(err && err.message ? err.message : err) });
+  }
+}
+
+/** Corre la escritura con el lock del script (dos envíos a la vez no se pisan). */
+function conLock_(trabajo) {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) {
+    return responder_({ ok: false, error: 'La planilla está ocupada, reintentá.' });
+  }
+  try {
+    return responder_(trabajo());
+  } finally {
+    lock.releaseLock();
   }
 }
 
@@ -225,6 +259,99 @@ function actualizarPlantas_(hoja, plantas) {
     n++;
   });
   return n;
+}
+
+// ───────────────────────────── Copia completa (hoja "Estado") ─────────────────────────────
+// Fila 1: "actualizado" y la fecha ISO de la copia. Filas 2+: el JSON partido en pedazos, cada uno con
+// una "x" adelante para que Sheets nunca lo interprete como número, fecha o fórmula.
+
+function guardarEstado_(ss, estado, actualizado) {
+  if (typeof estado !== 'string' || estado === '') throw new Error('Falta el estado.');
+  const nueva = new Date(actualizado);
+  if (isNaN(nueva.getTime())) throw new Error('Fecha de actualización inválida.');
+  const hoja = hojaEstado_(ss);
+  const actual = actualizadoGuardado_(hoja);
+  if (actual && new Date(actual).getTime() > nueva.getTime()) {
+    return { ok: true, guardado: false, actualizado: actual };
+  }
+  const filas = [['actualizado', nueva.toISOString()]];
+  for (let i = 0; i < estado.length; i += LARGO_PEDAZO) filas.push(['x' + estado.slice(i, i + LARGO_PEDAZO), '']);
+  hoja.clearContents();
+  hoja.getRange(1, 1, filas.length, 2).setNumberFormat('@').setValues(filas);
+  SpreadsheetApp.flush();
+  return { ok: true, guardado: true, actualizado: nueva.toISOString() };
+}
+
+function leerEstado_(ss) {
+  const hoja = ss.getSheetByName(HOJA_ESTADO);
+  const actualizado = hoja ? actualizadoGuardado_(hoja) : null;
+  if (hoja && actualizado && hoja.getLastRow() >= 2) {
+    const pedazos = hoja.getRange(2, 1, hoja.getLastRow() - 1, 1).getValues();
+    const estado = pedazos.map(function (f) { return String(f[0]).slice(1); }).join('');
+    return { ok: true, estado: estado, actualizado: actualizado };
+  }
+  // Todavía no hay copia: van las filas para que la app reconstruya los datos.
+  return {
+    ok: true, estado: null, actualizado: null,
+    filasRegistro: filas_(ss.getSheetByName(HOJA_REGISTRO), CLAVES_REGISTRO),
+    filasPlantas: filas_(ss.getSheetByName(HOJA_PLANTAS), CLAVES_PLANTAS),
+  };
+}
+
+function hojaEstado_(ss) {
+  let hoja = ss.getSheetByName(HOJA_ESTADO);
+  if (!hoja) {
+    hoja = ss.insertSheet(HOJA_ESTADO, ss.getNumSheets());
+    hoja.hideSheet();
+  }
+  return hoja;
+}
+
+function actualizadoGuardado_(hoja) {
+  if (hoja.getLastRow() < 1) return null;
+  const v = hoja.getRange(1, 2).getValue();
+  if (!v) return null;
+  const d = v instanceof Date ? v : new Date(String(v));
+  return isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+/** Las filas de una hoja como objetos con las claves de la app. Fechas → ISO; celdas vacías → "". */
+function filas_(hoja, claves) {
+  if (!hoja || hoja.getLastRow() < 2) return [];
+  const valores = hoja.getRange(2, 1, hoja.getLastRow() - 1, claves.length).getValues();
+  return valores.map(function (fila) {
+    const o = {};
+    claves.forEach(function (k, i) { o[k] = valorParaApp_(fila[i]); });
+    return o;
+  });
+}
+
+function valorParaApp_(v) {
+  if (v instanceof Date) return v.toISOString();
+  if (typeof v === 'string') {
+    // Una fecha que quedó como texto ("2026-11-10 14:30:00", hora de Buenos Aires).
+    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(v)) {
+      return Utilities.parseDate(v, ZONA, 'yyyy-MM-dd HH:mm:ss').toISOString();
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+      return Utilities.parseDate(v + ' 12:00:00', ZONA, 'yyyy-MM-dd HH:mm:ss').toISOString();
+    }
+  }
+  return v;
+}
+
+/** Prueba la copia completa sin la app: guarda una copia chiquita, la lee y la borra. */
+function testEstado() {
+  const ss = planilla_();
+  const antes = ss.getSheetByName(HOJA_ESTADO);
+  if (antes && antes.getLastRow() > 0) {
+    Logger.log('Ya hay una copia guardada: no la toco. %s', JSON.stringify(leerEstado_(ss)).slice(0, 300));
+    return;
+  }
+  Logger.log(JSON.stringify(guardarEstado_(ss, '{"plantas":[],"prueba":"=hola"}', new Date().toISOString())));
+  Logger.log(JSON.stringify(leerEstado_(ss)));
+  ss.getSheetByName(HOJA_ESTADO).clearContents();
+  Logger.log('Copia de prueba borrada.');
 }
 
 // ───────────────────────────── Formato ─────────────────────────────

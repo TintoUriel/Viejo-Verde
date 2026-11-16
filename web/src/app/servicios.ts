@@ -21,6 +21,8 @@ function conTiempo(ms: number): AbortSignal | undefined {
 function detalleDeError(e: unknown): string {
   if (e instanceof DOMException && (e.name === 'TimeoutError' || e.name === 'AbortError')) return 'tardó demasiado'
   if (!navigator.onLine) return 'sin internet'
+  // Sin permiso para leer la respuesta (URL equivocada o Web App sin acceso público) el navegador solo dice "Failed to fetch".
+  if (e instanceof TypeError) return 'el navegador no pudo leer la respuesta'
   return e instanceof Error ? e.message : String(e)
 }
 
