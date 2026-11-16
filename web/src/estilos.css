@@ -852,3 +852,21 @@ details.guia ol li::marker { color: var(--verde); font-weight: 700; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* ─── Contraseña de entrada ─── */
+
+.pantalla.entrada { min-height: 100dvh; justify-content: center; padding-bottom: calc(var(--abajo) + 32px); }
+.entrada-caja { display: flex; flex-direction: column; align-items: center; gap: 14px; width: 100%; max-width: 340px; margin: 0 auto; text-align: center; }
+.entrada-caja h1 { margin: 0; font-size: 28px; font-weight: 750; }
+.entrada-icono { border-radius: 20px; }
+.entrada-caja input {
+  width: 100%;
+  border: none;
+  border-radius: 12px;
+  background: var(--tarjeta);
+  padding: 14px 16px;
+  font-size: 18px;
+  text-align: center;
+  outline: none;
+}
+.entrada-caja input:focus { box-shadow: 0 0 0 2px var(--verde); }

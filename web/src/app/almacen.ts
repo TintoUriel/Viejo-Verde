@@ -12,7 +12,7 @@ import { Tareas, type AccionTarea, type DosisTarea, type Tarea } from '../core/t
 import { aJSON, leerFecha } from '../core/util'
 import { DB, pedirPersistencia } from './db'
 import { Fotos } from './fotos'
-import { Clima } from './servicios'
+import { cargarSecretos, Clima } from './servicios'
 import { Sincronizador } from './sincronizador'
 import { avisar } from './ui'
 
@@ -53,6 +53,7 @@ const claveChat = () => (modoEjemplo.value ? 'chat-ejemplo' : 'chat')
 // ─── Arranque ───
 
 export async function cargar(): Promise<void> {
+  await cargarSecretos()
   const [d, error] = await leerGuardados('datos')
   datos.value = d
   ultimoError.value = error

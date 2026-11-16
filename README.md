@@ -32,6 +32,7 @@ El chat del asistente no se pasa (no está en el backup).
 
 - **Sin notificaciones.** La pestaña **Hoy** muestra lo que toca (el número rojo en la pestaña son las
   tareas pendientes). Sexado, Top Bloom, tricomas, tallitos y frascos aparecen ahí como tareas.
+- **Contraseña de entrada.** La primera vez en cada teléfono la app pide la contraseña: con ella descifra la URL y el token de la planilla (que van cifrados en `web/src/app/config.ts`) y se conecta sola. No hay que cargar nada a mano.
 - **La planilla sube y baja.** Cada cambio se anota en Registro y además se guarda una copia completa en
   la planilla; al abrir la app, si esa copia es más nueva, se baja sola. Si la planilla todavía no tiene
   copia, la app rearma tus datos leyendo Registro y Plantas (por ejemplo, lo que mandó la app de iPhone).

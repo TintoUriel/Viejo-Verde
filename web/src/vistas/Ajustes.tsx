@@ -69,8 +69,6 @@ function SeccionAsistente() {
 
 function SeccionPlanilla() {
   const s = estadoSync.value
-  const [url, setUrl] = useState('')
-  const [token, setToken] = useState('')
   const ocupado = useSignal(false)
 
   const conCarga = async (tarea: () => Promise<string>, titulo = 'Planilla de Google') => {
@@ -130,33 +128,9 @@ function SeccionPlanilla() {
             onClick={() => conCarga(() => Sincronizador.sincronizarTodo(datos.value, new Date()))}>
             Sincronizar todo
           </button>
-          <button class="fila accion peligro" onClick={async () => {
-            if (await confirmar('¿Borrar la URL y el token?', 'Borrar', { destructiva: true })) await Sincronizador.borrarConfiguracion()
-          }}>Borrar URL y token</button>
         </>
       ) : (
-        <>
-          <div class="fila">
-            <input type="url" placeholder="https://script.google.com/macros/s/…/exec" aria-label="URL del Web App" autoCapitalize="off"
-              autoComplete="off" spellcheck={false} value={url} onInput={(e) => setUrl((e.target as HTMLInputElement).value)} />
-          </div>
-          <div class="fila">
-            <input type="password" placeholder="Token" aria-label="Token" autoCapitalize="off" autoComplete="off" spellcheck={false}
-              value={token} onInput={(e) => setToken((e.target as HTMLInputElement).value)} />
-          </div>
-          <button class="fila accion" disabled={url.trim() === '' || token.trim() === ''} onClick={async () => {
-            const error = await Sincronizador.guardarConfiguracion(url, token)
-            if (error) {
-              await mostrar('Planilla de Google', error)
-              return
-            }
-            setUrl('')
-            setToken('')
-            await Sincronizador.cambiarActivada(true)
-            avisar('Planilla configurada')
-            await alVolver(true)
-          }}>Guardar</button>
-        </>
+        <div class="fila"><span class="secundario">Se conecta sola cuando entrás con la contraseña.</span></div>
       )}
     </Seccion>
   )

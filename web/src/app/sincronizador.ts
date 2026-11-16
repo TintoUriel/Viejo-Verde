@@ -8,7 +8,7 @@ import { CuerpoSync, mensajeErrorSync } from '../core/sync/modelos'
 import { limpiarFila, reconstruir, tieneDatos, type FilaPlanta, type FilaRegistro } from '../core/sync/reconstruir'
 import { aJSON, iso, leerFecha } from '../core/util'
 import { DB } from './db'
-import { ClienteSync, guardarSecretos, secretos, VERSION_APP } from './servicios'
+import { ClienteSync, secretos, VERSION_APP } from './servicios'
 
 /**
  * Manda a la planilla de Google lo que pasa en la app.
@@ -219,33 +219,6 @@ export const Sincronizador = {
   },
 
   // ─── Configuración ───
-
-  /** Valida y guarda la URL del Web App y el token. Devuelve un error, o undefined si salió bien. */
-  async guardarConfiguracion(url: string, token: string): Promise<string | undefined> {
-    const u = url.trim()
-    const t = token.trim()
-    let host = ''
-    let protocolo = ''
-    try {
-      const p = new URL(u)
-      host = p.host
-      protocolo = p.protocol
-    } catch {
-      // sigue abajo
-    }
-    if (protocolo !== 'https:' || host !== 'script.google.com' || !u.endsWith('/exec')) {
-      return 'La URL tiene que ser la del Web App: https://script.google.com/macros/s/…/exec'
-    }
-    if (t.length < 16) return 'El token parece muy corto.'
-    await guardarSecretos({ planillaURL: u, planillaToken: t })
-    refrescar()
-    return undefined
-  },
-
-  async borrarConfiguracion(): Promise<void> {
-    await guardarSecretos({ planillaURL: undefined, planillaToken: undefined })
-    refrescar()
-  },
 
   async cambiarActivada(valor: boolean): Promise<void> {
     activada = valor

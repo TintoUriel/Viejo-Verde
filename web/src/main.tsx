@@ -3,12 +3,14 @@ import { render } from 'preact'
 import { useLayoutEffect } from 'preact/hooks'
 import { registerSW } from 'virtual:pwa-register'
 import { alVolver, cargado, cargar, modoEjemplo, salirModoEjemplo, tareas, ultimoError } from './app/almacen'
+import { cargarAcceso, desbloqueada } from './app/acceso'
 import { irAPestania, pestania, PESTANIAS, ruta, scrollGuardado, type Pestania } from './app/router'
 import { Superpuestos } from './componentes'
 import { Icono, IconoPestania } from './iconos'
 import './estilos.css'
 import { VistaAjustes } from './vistas/Ajustes'
 import { VistaAsistente } from './vistas/Asistente'
+import { PantallaContrasenia } from './vistas/Contrasenia'
 import { VistaCosechas } from './vistas/Cosechas'
 import { DetallePlanta } from './vistas/DetallePlanta'
 import { VistaHoy } from './vistas/Hoy'
@@ -66,7 +68,8 @@ function App() {
   // Al cambiar de pantalla: vuelve a donde estabas (o arriba de todo si es nueva).
   useLayoutEffect(() => { window.scrollTo(0, scrollGuardado(r)) }, [r])
 
-  if (!cargado.value) return <div class="cargando">Cargando…</div>
+  if (!cargado.value || desbloqueada.value === undefined) return <div class="cargando">Cargando…</div>
+  if (!desbloqueada.value) return <><PantallaContrasenia /><Superpuestos /></>
   const n = tareas.value.length
   return (
     <>
@@ -100,4 +103,5 @@ function App() {
 }
 
 render(<App />, document.getElementById('app')!)
+void cargarAcceso()
 void cargar()
