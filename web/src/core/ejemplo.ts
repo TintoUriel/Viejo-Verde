@@ -1,6 +1,7 @@
 import { Calendario } from './calendario'
 import { D, datosVacios, type Datos } from './datos'
 import { nuevaPlanta, nuevoPaquete, nuevoPolen, nuevoRegistro } from './modelos'
+import { nuevoObstaculo, patioPorDefecto } from './patio'
 
 /** Datos de ejemplo para probar la app. Se cargan en un almacén aparte, nunca sobre los datos reales. */
 export function datosDeEjemplo(hoy: Date): Datos {
@@ -52,5 +53,23 @@ export function datosDeEjemplo(hoy: Date): Datos {
   D.agregarPlanta(d, c)
 
   d.polenes = [nuevoPolen({ fecha: hace(200), plantaOrigen: 'Macho viejo (Auto regular)', notas: 'Sobre en frasco con arroz' })]
+
+  // El patio: 4 × 7 m, el fondo da al norte (un poco al este), medianera alta a la izquierda y un edificio al fondo.
+  const patio = patioPorDefecto()
+  patio.ancho = 4
+  patio.largo = 7
+  patio.orientacion = 20
+  patio.paredes = {
+    arriba: { alto: 2.2, detras: { alto: 10, distancia: 6 } },
+    derecha: { alto: 2.5 },
+    abajo: { alto: 3 },
+    izquierda: { alto: 5 },
+  }
+  patio.obstaculos = [nuevoObstaculo({ nombre: 'Parrilla', x: 2.9, y: 0, ancho: 1.1, largo: 0.6, alto: 2 })]
+  const lugares: Record<string, { x: number; y: number }> = {
+    'Banana 1': { x: 3.4, y: 6.4 }, 'Banana 2': { x: 2.5, y: 6.4 }, 'Banana 3': { x: 1.6, y: 6.4 }, 'Regular 1': { x: 2, y: 3 },
+  }
+  for (const pl of d.plantas) if (lugares[pl.nombre]) patio.ubicaciones[pl.id] = lugares[pl.nombre]
+  D.guardarPatio(d, patio)
   return d
 }

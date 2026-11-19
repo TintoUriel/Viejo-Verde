@@ -41,16 +41,21 @@ El chat del asistente no se pasa (no está en el backup).
 - La API key, la URL y el token de la planilla quedan en el almacenamiento del navegador del teléfono
   (no en el llavero). Nunca van en los backups.
 - "Cargar datos de ejemplo" está siempre en Ajustes (antes solo en debug).
+- **Plano del patio** (nuevo, en **Plantas → Patio**): cargás las medidas, la altura de cada pared (y si hay un
+  edificio más atrás), hacia dónde da (a mano o con la brújula del teléfono) y lo que hace sombra adentro. La app
+  calcula las horas de sol directo de cada lugar (por temporada, por día o a una hora), marca los mejores
+  lugares, te deja ubicar cada maceta arrastrándola y se lo cuenta al asistente. La app de iPhone no lo usa
+  (lo ignora si viene en un backup).
 
 ## Estructura
 
 ```
 web/                   La app web (Vite + Preact + TypeScript).
   src/core/            Lógica pura portada de ViejoVerdeCore, testeada: modelo, etapas, tareas, dosis,
-                       clima, planificador, estadísticas, backup, pedido/respuesta de Claude,
+                       clima, planificador, sol del patio, estadísticas, backup, pedido/respuesta de Claude,
                        sync/ (eventos para la planilla, cola local, formato del POST).
   src/app/             Almacén (IndexedDB), fotos, servicios (clima, Claude, planilla), navegación.
-  src/vistas/          Pantallas: Hoy, Plantas, Detalle, Semillas, Asistente, Ajustes, Planificar, Cosechas.
+  src/vistas/          Pantallas: Hoy, Plantas, Detalle, Semillas, Asistente, Ajustes, Planificar, Cosechas, Patio.
   test/                Los mismos casos que Tests/ViejoVerdeCoreTests (Vitest).
 apps-script/           Web App de Google Apps Script que escribe en la planilla (Code.gs + instrucciones).
 .github/workflows/     web.yml publica en GitHub Pages; ipa.yml compila la app de iPhone vieja.

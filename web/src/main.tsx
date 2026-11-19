@@ -15,6 +15,7 @@ import { VistaCosechas } from './vistas/Cosechas'
 import { DetallePlanta } from './vistas/DetallePlanta'
 import { VistaHoy } from './vistas/Hoy'
 import { VistaLineaTiempo } from './vistas/LineaTiempo'
+import { VistaPatio } from './vistas/Patio'
 import { VistaPlanificador } from './vistas/Planificador'
 import { VistaPlantas } from './vistas/Plantas'
 import { VistaSemillas } from './vistas/Semillas'
@@ -55,6 +56,7 @@ function Pantalla({ r }: { r: string }) {
     case 'ajustes': return <VistaAjustes />
     case 'planificar': return <VistaPlanificador />
     case 'cosechas': return <VistaCosechas />
+    case 'patio': return <VistaPatio />
     case 'planta':
       if (partes[1] && partes[2] === 'fotos') return <VistaLineaTiempo id={partes[1]} />
       if (partes[1]) return <DetallePlanta key={partes[1]} id={partes[1]} />

@@ -7,6 +7,7 @@ import {
   type AjustesAvisos, type Cosecha, type OpcionesRegistro, type PaqueteSemillas, type Planta, type Polen,
   type Registro, type Sexo, type TipoRegistro,
 } from './modelos'
+import { ajustarPatio, CABA, LADOS, patioPorDefecto, type Lado, type Pared, type Patio, type Punto } from './patio'
 import { aJSON, leerFecha } from './util'
 
 /** Todo lo que guarda la app. Las operaciones viven acá (y no en la UI) para poder testearlas. */
@@ -18,6 +19,8 @@ export interface Datos {
   /** Tareas a las que se les tocó "Hoy no": id de tarea → día. */
   pospuestas: Record<string, Date>
   avisos: AjustesAvisos
+  /** El plano del patio (para ver dónde da el sol). No existe en la app de iOS. */
+  patio?: Patio
 }
 
 export function datosVacios(): Datos {
@@ -59,6 +62,7 @@ export const D = {
 
   borrarPlanta(d: Datos, id: string): void {
     d.plantas = d.plantas.filter((p) => p.id !== id)
+    if (d.patio) delete d.patio.ubicaciones[id]
     d.pospuestas = Object.fromEntries(Object.entries(d.pospuestas).filter(([k]) => !k.endsWith(id)))
   },
 
@@ -214,6 +218,20 @@ export const D = {
   ajustarCantidad(d: Datos, paqueteID: string, delta: number): void {
     const p = d.paquetes.find((k) => k.id === paqueteID)
     if (p) p.cantidad = Math.max(p.cantidad + delta, 0)
+  },
+
+  // ─── Patio ───
+
+  guardarPatio(d: Datos, p: Patio): void {
+    d.patio = ajustarPatio(p)
+  },
+
+  /** Pone la planta en ese lugar del plano (o la saca, sin lugar). */
+  ubicar(d: Datos, id: string, lugar: Punto | undefined): void {
+    if (!d.patio) return
+    if (lugar) d.patio.ubicaciones[id] = lugar
+    else delete d.patio.ubicaciones[id]
+    d.patio = ajustarPatio(d.patio)
   },
 
   // ─── Tareas ───
@@ -403,7 +421,43 @@ export function leerDatos(v: unknown): Datos {
       hora: numero(a, 'hora', defA.hora),
       minuto: numero(a, 'minuto', defA.minuto),
     },
+    ...(o.patio === undefined || o.patio === null ? {} : { patio: leerPatio(o.patio) }),
   }
+}
+
+function leerPared(v: unknown, def: Pared): Pared {
+  if (typeof v !== 'object' || v === null) return def
+  const o = v as Obj
+  const t = o.detras
+  const detras = typeof t === 'object' && t !== null
+    ? { alto: numero(t as Obj, 'alto', 0), distancia: numero(t as Obj, 'distancia', 0) }
+    : undefined
+  return sinVacios({ alto: numero(o, 'alto', def.alto), detras })
+}
+
+export function leerPatio(v: unknown): Patio {
+  const o = obj(v, 'patio')
+  const def = patioPorDefecto()
+  const paredes = o.paredes === undefined || o.paredes === null ? {} : obj(o.paredes, 'paredes')
+  const ubic = o.ubicaciones === undefined || o.ubicaciones === null ? {} : obj(o.ubicaciones, 'ubicaciones')
+  return ajustarPatio({
+    ancho: numero(o, 'ancho', def.ancho),
+    largo: numero(o, 'largo', def.largo),
+    paredes: Object.fromEntries(LADOS.map((l) => [l, leerPared(paredes[l], def.paredes[l])])) as Record<Lado, Pared>,
+    orientacion: numero(o, 'orientacion', 0),
+    alturaPlantas: numero(o, 'alturaPlantas', def.alturaPlantas),
+    latitud: numero(o, 'latitud', CABA.latitud),
+    longitud: numero(o, 'longitud', CABA.longitud),
+    obstaculos: lista(o, 'obstaculos', (x) => {
+      const b = obj(x, 'obstáculo')
+      return { id: texto(b, 'id'), nombre: texto(b, 'nombre', ''), x: numero(b, 'x', 0), y: numero(b, 'y', 0),
+        ancho: numero(b, 'ancho', 1), largo: numero(b, 'largo', 1), alto: numero(b, 'alto', 1) }
+    }),
+    ubicaciones: Object.fromEntries(Object.entries(ubic).map(([id, u]) => {
+      const b = obj(u, 'ubicación')
+      return [id, { x: numero(b, 'x', 0), y: numero(b, 'y', 0) }]
+    })),
+  })
 }
 
 // ─── Backup ───

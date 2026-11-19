@@ -13,7 +13,7 @@ function leer(): string {
 
 export const ruta = signal(leer())
 /** La última pestaña visitada (queda marcada mientras se navega dentro de ella). */
-export const pestania = signal<Pestania>(pestaniaDe(leer()) ?? (/^(planta|cosechas)/.test(leer()) ? 'plantas' : 'hoy'))
+export const pestania = signal<Pestania>(pestaniaDe(leer()) ?? (/^(planta|cosechas|patio)/.test(leer()) ? 'plantas' : 'hoy'))
 
 function pestaniaDe(r: string): Pestania | undefined {
   return (PESTANIAS as string[]).includes(r) ? (r as Pestania) : undefined

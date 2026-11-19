@@ -23,6 +23,7 @@ export function VistaPlantas() {
       <div class="fila-botones">
         <button class="mini-boton" onClick={() => ir('planificar')}><Icono nombre="calendario" tam={16} />Planificar</button>
         <button class="mini-boton" onClick={() => ir('cosechas')}><Icono nombre="grafico" tam={16} />Cosechas</button>
+        <button class="mini-boton" onClick={() => ir('patio')}><Icono nombre="sol" tam={16} />Patio</button>
       </div>
 
       {plantas.length === 0 && (

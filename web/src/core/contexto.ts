@@ -7,6 +7,7 @@ import { Formato } from './formato'
 import {
   nombreSexo, nombreTipoPlanta, nombreTipoSemilla, nombreUbicacion, ultimaFecha, type Planta,
 } from './modelos'
+import { horasEn, LADOS, muestrasDelDia, nombreRumbo, rumboLado } from './patio'
 import { Planificador } from './planificador'
 
 export const ContextoAsistente = {
@@ -42,6 +43,8 @@ export const ContextoAsistente = {
       l.push('Plantas:')
       for (const p of relevantes) l.push(resumen(p, hoy))
     }
+    const patio = solDelPatio(datos, hoy)
+    if (patio) l.push(patio)
 
     const semillas = datos.paquetes.filter((k) => k.cantidad > 0)
     if (semillas.length > 0) {
@@ -63,6 +66,21 @@ export const ContextoAsistente = {
     '¿Cómo sé si está para cosechar?',
     '¿Cómo junto el polen?',
   ],
+}
+
+/** El plano del patio y cuánto sol directo le llega hoy a cada planta (si cargó el plano). */
+function solDelPatio(d: Datos, hoy: Date): string | undefined {
+  const p = d.patio
+  if (!p) return undefined
+  const paredes = LADOS.map((l) => `${nombreRumbo(rumboLado(p, l))} ${Formato.numero(p.paredes[l].alto)} m`).join(', ')
+  let t = `Patio: ${Formato.numero(p.ancho)} × ${Formato.numero(p.largo)} m, paredes (alto): ${paredes}.`
+  const plantas = d.plantas.filter((x) => x.estado === 'activa' && x.ubicacion === 'patio' && p.ubicaciones[x.id])
+  if (plantas.length > 0) {
+    const m = muestrasDelDia(hoy, p.latitud, p.longitud)
+    t += ' Sol directo estimado hoy donde está cada planta: '
+      + plantas.map((x) => `${x.nombre} ${Formato.numero(horasEn(p, p.ubicaciones[x.id], m))} h`).join(', ') + '.'
+  }
+  return t
 }
 
 function resumen(p: Planta, hoy: Date): string {
