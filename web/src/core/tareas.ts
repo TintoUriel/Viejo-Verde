@@ -2,7 +2,6 @@ import { Calendario } from './calendario'
 import { AnalisisClima, type Pronostico } from './clima'
 import { CalculoDosis, configPorDefecto, textoAgua, textoFertilizante, type ConfigDosis, type Dosis } from './dosis'
 import { Etapas, type Etapa } from './etapas'
-import { Formato } from './formato'
 import { nombreFertilizante, ultimaFecha, type PaqueteSemillas, type Planta, type TipoRegistro } from './modelos'
 import { maxFecha } from './util'
 
@@ -119,19 +118,12 @@ function tareasDe(p: Planta, paquetes: PaqueteSemillas[], hoy: Date, config: Con
       // --- Riego y fertilizante (fertilizar también es regar) ---
       const dosis = CalculoDosis.dosis(e.etapa, e.diaEnEtapa, p.litrosMaceta, config)
       const sinRiego = diasDesde(['riego', 'fertilizante'], p.fechaGerminacion) ?? 0
-      // Clima (solo para las del patio): si ayer llovió fuerte no hace falta regar;
-      // con calor fuerte, las macetas de tela se secan en un día.
+      // Clima (solo para las del patio): con calor fuerte, las macetas de tela se secan en un día.
+      // La lluvia no cuenta: el patio está techado con nylon.
       const enPatio = p.ubicacion === 'patio'
-      const llovio = enPatio && AnalisisClima.lluviaAyer(clima, hoy) >= AnalisisClima.lluviaQueRiega
       const calor = enPatio && AnalisisClima.hayCalor(clima, hoy)
-      const lluviaHoy = enPatio ? AnalisisClima.lluviaHoyProbable(clima, hoy) : undefined
-      const tocaRegar = !llovio && sinRiego >= (calor ? 1 : Tareas.diasEntreRiegos)
-      let notaClima = ''
-      if (lluviaHoy !== undefined) {
-        notaClima = ` Pronóstico: ${Formato.numero(lluviaHoy)} mm de lluvia hoy; si podés, esperá.`
-      } else if (calor) {
-        notaClima = ' Hace calor: regá temprano o al atardecer.'
-      }
+      const tocaRegar = sinRiego >= (calor ? 1 : Tareas.diasEntreRiegos)
+      const notaClima = calor ? ' Hace calor: regá temprano o al atardecer.' : ''
       const sinFertilizar = diasDesde(['fertilizante']) ?? INF
       if (tocaRegar && dosis.fertilizante && sinFertilizar >= Tareas.diasEntreFertilizantes) {
         t('fertilizante', `Toca ${nombreFertilizante[dosis.fertilizante]} para ${n}`,
@@ -185,7 +177,7 @@ function tareasDe(p: Planta, paquetes: PaqueteSemillas[], hoy: Date, config: Con
       })()
       if (enPatio && p.sexo !== 'macho' && enFlor.includes(e.etapa) && AnalisisClima.riesgoHongos(clima, hoy) && !revisadaHoy) {
         t('hongos', `Revisá hongos en ${n}`,
-          'Hubo humedad o lluvia: abrí un poco los cogollos más gordos. Si ves partes marrones o pelusa gris, cortalas y tiralas lejos.',
+          'Hubo mucha humedad: abrí un poco los cogollos más gordos. Si ves partes marrones o pelusa gris, cortalas y tiralas lejos.',
           ['revise', 'hoyNo'])
       }
 

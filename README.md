@@ -89,7 +89,7 @@ Arrancá por **Ajustes → Probar la app → Cargar datos de ejemplo** para tene
 
 1. **Hoy**: fecha, consejo de temporada, clima de CABA (↻ para actualizar), resumen con cupo X/9 (en rojo
    si te pasás) y tareas con botones. El macho en el patio aparece primero, en rojo. "Hoy no" la esconde
-   hasta mañana. **Regué las N** con 2 o más riegos pendientes. **Llovió** = riego en todas las del patio.
+   hasta mañana. **Regué las N** con 2 o más riegos pendientes. La lluvia no cuenta como riego (el patio está techado con nylon).
 2. **Plantas y detalle**: lista por estado con barra de etapas; ⊕ para agregar (desde un pack descuenta 1);
    detalle con etapa, día/semana, dosis de hoy, Regué / Fertilicé / Neem / Nota o problema / Foto, sexo
    (regulares), Polinicé una rama, Cosechar → A frascos → Terminar, semillas propias, historial editable

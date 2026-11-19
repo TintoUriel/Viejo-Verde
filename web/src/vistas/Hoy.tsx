@@ -1,9 +1,9 @@
 import { useSignal } from '@preact/signals'
 import {
-  actualizarClima, avisosClima, climaVigente, cupo, datos, ejecutarTarea, hoy, llovio, regarTodas, tareas,
+  actualizarClima, avisosClima, climaVigente, cupo, datos, ejecutarTarea, hoy, regarTodas, tareas,
 } from '../app/almacen'
 import { ir } from '../app/router'
-import { avisar, confirmar } from '../app/ui'
+import { avisar } from '../app/ui'
 import { BotonGrande, Girando, Pastilla, Tarjeta } from '../componentes'
 import { AnalisisClima, diaClima, diaClimaDesde, type DiaClima } from '../core/clima'
 import { Temporada } from '../core/consejos'
@@ -160,13 +160,6 @@ function TarjetaClima() {
     cargando.value = false
     if (!ok) avisar('No pude bajar el pronóstico')
   }
-  const lluvia = async () => {
-    if (await confirmar('¿Llovió bien en el patio?', 'Sí, contalo como riego',
-      { mensaje: 'Se registra un riego (lluvia) en todas las plantas activas del patio.' })) {
-      const n = llovio()
-      avisar(n === 0 ? 'No hay plantas activas en el patio' : `Lluvia registrada en ${n} plantas`)
-    }
-  }
 
   return (
     <Tarjeta>
@@ -176,12 +169,12 @@ function TarjetaClima() {
             <span class="icono" style={{ color: colorClima(h) }}><Icono nombre={iconoClima(h)} tam={38} /></span>
             <div style={{ flex: 1 }}>
               <div class="temp">{temperaturas(h)}</div>
-              <div class="nota">{detalleClima(h)}</div>
+              {h.humedad !== undefined && <div class="nota">Humedad {redondear(h.humedad)} %</div>}
             </div>
             <button class="boton-icono" aria-label="Actualizar el pronóstico" onClick={actualizar} disabled={cargando.value}
               >{cargando.value ? <Girando /> : <Icono nombre="recargar" tam={22} />}</button>
           </div>
-          {m && <p class="nota">Mañana: {temperaturas(m)} · {Formato.numero(m.lluviaMM)} mm</p>}
+          {m && <p class="nota">Mañana: {temperaturas(m)}</p>}
           {avisosClima.value.map((a) => (
             <div class="aviso-clima" key={a.tipo} style={{ '--c': colorAviso[a.tipo] }}>
               <div class="titulo con-icono" style={{ color: colorAviso[a.tipo] }}><Icono nombre={iconoAviso[a.tipo]} tam={18} />{a.titulo}</div>
@@ -201,7 +194,6 @@ function TarjetaClima() {
           </div>
         </>
       )}
-      <BotonGrande titulo="Llovió" icono="lluvia" color="azul" relleno={false} onClick={lluvia} />
     </Tarjeta>
   )
 }
@@ -210,12 +202,6 @@ function temperaturas(d: DiaClima): string {
   if (d.minC !== undefined && d.maxC !== undefined) return `${Formato.numero(redondear(d.minC))}° / ${Formato.numero(redondear(d.maxC))}°`
   if (d.maxC !== undefined) return `máx ${Formato.numero(redondear(d.maxC))}°`
   return '—'
-}
-
-function detalleClima(d: DiaClima): string {
-  const partes = [`Lluvia ${Formato.numero(d.lluviaMM)} mm` + (d.probLluvia !== undefined ? ` (${d.probLluvia} %)` : '')]
-  if (d.humedad !== undefined) partes.push(`humedad ${redondear(d.humedad)} %`)
-  return partes.join(' · ')
 }
 
 function iconoClima(d: DiaClima): NombreIcono {

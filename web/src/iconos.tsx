@@ -336,11 +336,11 @@ export const colorRegistro: Record<TipoRegistro, string> = {
 }
 
 export const iconoAviso: Record<TipoAvisoClima, NombreIcono> = {
-  lluvia: 'lluvia', llovio: 'gota', calor: 'termometro', frio: 'copo', hongos: 'hongo',
+  calor: 'termometro', frio: 'copo', hongos: 'hongo',
 }
 
 export const colorAviso: Record<TipoAvisoClima, string> = {
-  lluvia: 'var(--azul)', llovio: 'var(--azul)', calor: 'var(--ambar)', frio: 'var(--teal)', hongos: 'var(--alerta)',
+  calor: 'var(--ambar)', frio: 'var(--teal)', hongos: 'var(--alerta)',
 }
 
 // Íconos de la barra de pestañas.

@@ -63,7 +63,7 @@ describe('Reconstruir desde la planilla', () => {
       (d) => D.registrar(d, 'problema', p.id, hace(26), { nota: 'Hojas amarillas' }),
       (d) => D.registrar(d, 'nota', p.id, hace(25), { nota: 'Esta se borra' }),
       (d) => { const r2 = planta(d, p.id)!.registros.find((x) => x.nota === 'Esta se borra')!; D.borrarRegistro(d, r2.id, p.id) },
-      (d) => D.llovio(d, hace(24), 8),
+      (d) => D.registrarEnGrupo(d, 'riego', [p.id, macho.id], hace(24), { producto: 'Lluvia', nota: '8 mm' }),
       (d) => D.marcarSexo(d, 'macho', macho.id, hace(20)),
       (d) => D.moverAdentro(d, macho.id, hace(20)),
       (d) => { D.juntarPolen(d, macho.id, hace(15)) },

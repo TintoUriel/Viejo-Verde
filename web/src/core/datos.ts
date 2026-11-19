@@ -208,13 +208,6 @@ export const D = {
     for (const id of ids) D.registrar(d, tipo, id, fecha, o)
   },
 
-  /** "Llovió": cuenta como riego para todas las plantas activas del patio. Devuelve cuántas. */
-  llovio(d: Datos, fecha: Date, mm?: number): number {
-    const ids = d.plantas.filter((p) => p.estado === 'activa' && p.ubicacion === 'patio').map((p) => p.id)
-    D.registrarEnGrupo(d, 'riego', ids, fecha, { producto: 'Lluvia', nota: mm === undefined ? undefined : `${Formato.numero(mm)} mm` })
-    return ids.length
-  },
-
   ajustarCantidad(d: Datos, paqueteID: string, delta: number): void {
     const p = d.paquetes.find((k) => k.id === paqueteID)
     if (p) p.cantidad = Math.max(p.cantidad + delta, 0)

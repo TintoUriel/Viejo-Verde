@@ -25,7 +25,8 @@ export const ContextoAsistente = {
   contexto(datos: Datos, hoy: Date, clima?: Pronostico): string {
     const l: string[] = []
     l.push(`Fecha de hoy: ${Formato.fechaLarga(hoy)} (${Calendario.claveDia(hoy)}).`)
-    l.push('Ubicación: CABA, Buenos Aires, Argentina (hemisferio sur). Cultivo en el patio, exterior; machos adentro.')
+    l.push('Ubicación: CABA, Buenos Aires, Argentina (hemisferio sur). Cultivo en el patio, exterior pero techado con nylon ' +
+      '(la lluvia no moja las macetas: hay que regar igual); machos adentro.')
     l.push(`Límites REPROCANN: hasta ${Cupo.plantasFlorecidas} plantas florecidas y hasta ${Cupo.metrosExterior} m² en exterior.`)
     const temporada = Temporada.consejo(hoy)
     l.push(`Temporada: ${temporada.titulo}. ${temporada.texto}`)

@@ -323,11 +323,3 @@ export function regarTodas(lista: Tarea[]): void {
   })
 }
 
-/** "Llovió": cuenta como riego para todas las del patio. Usa los mm de hoy si los hay. */
-export function llovio(): number {
-  const c = climaVigente.value
-  const mm = c ? diaClima(c, hoy.value)?.lluviaMM : undefined
-  let cuantas = 0
-  cambiar((d) => { cuantas = D.llovio(d, new Date(), mm !== undefined && mm > 0 ? mm : undefined) })
-  return cuantas
-}

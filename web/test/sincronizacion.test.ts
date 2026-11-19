@@ -80,10 +80,11 @@ describe('Mapeo de eventos', () => {
     expect(e.dosis).toBe(1)
   })
 
-  it('lluvia en mm', () => {
+  it('lluvia en mm (riegos "Lluvia" que ya estaban en el historial)', () => {
     const d = datosVacios()
-    D.agregarPlanta(d, auto({ dia: 30 }))
-    const [e] = eventos(d, (x) => { D.llovio(x, hoyTest, 12) })
+    const p = auto({ dia: 30 })
+    D.agregarPlanta(d, p)
+    const [e] = eventos(d, (x) => { D.registrar(x, 'riego', p.id, hoyTest, { producto: 'Lluvia', nota: '12 mm' }) })
     expect(e.tipo).toBe(TE.lluvia)
     expect(e.cantidad).toBe(12)
     expect(e.unidad).toBe('mm')

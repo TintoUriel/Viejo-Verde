@@ -86,7 +86,7 @@ export const OpenMeteo = {
 
 // ─── Análisis para el patio ───
 
-export type TipoAvisoClima = 'lluvia' | 'llovio' | 'calor' | 'frio' | 'hongos'
+export type TipoAvisoClima = 'calor' | 'frio' | 'hongos'
 
 export interface AvisoClima {
   tipo: TipoAvisoClima
@@ -96,35 +96,21 @@ export interface AvisoClima {
 
 const EN_FLOR: readonly Etapa[] = ['floracion', 'maduracion', 'listaCosecha']
 
+// El patio está techado con nylon: la lluvia no moja las macetas, así que no cuenta como riego ni se avisa.
 export const AnalisisClima = {
-  /** Con esta lluvia (mm) las macetas del patio quedan regadas. */
-  lluviaQueRiega: 5,
   calorFuerte: 32,
   nocheFria: 5,
   humedadHongos: 80,
-  /** Desde esta probabilidad se toma en serio el pronóstico de lluvia. */
-  probLluviaSeria: 60,
-
-  lluviaAyer(p: Pronostico | undefined, hoy: Date): number {
-    return (p && diaClimaDesde(p, -1, hoy)?.lluviaMM) ?? 0
-  },
-
-  /** Lluvia pronosticada para hoy, si es probable. */
-  lluviaHoyProbable(p: Pronostico | undefined, hoy: Date): number | undefined {
-    const d = p && diaClima(p, hoy)
-    if (!d || d.lluviaMM < AnalisisClima.lluviaQueRiega || (d.probLluvia ?? 100) < AnalisisClima.probLluviaSeria) return undefined
-    return d.lluviaMM
-  },
 
   hayCalor(p: Pronostico | undefined, hoy: Date): boolean {
     return ((p && diaClima(p, hoy)?.maxC) ?? 0) >= AnalisisClima.calorFuerte
   },
 
-  /** Humedad alta o lluvia ayer u hoy: condiciones para hongos en cogollos. */
+  /** Humedad alta ayer u hoy: condiciones para hongos en cogollos (el nylon no frena la humedad). */
   riesgoHongos(p: Pronostico | undefined, hoy: Date): boolean {
     if (!p) return false
     return [diaClimaDesde(p, -1, hoy), diaClima(p, hoy)].some(
-      (d) => d !== undefined && ((d.humedad ?? 0) >= AnalisisClima.humedadHongos || d.lluviaMM >= AnalisisClima.lluviaQueRiega),
+      (d) => d !== undefined && (d.humedad ?? 0) >= AnalisisClima.humedadHongos,
     )
   },
 
@@ -133,15 +119,6 @@ export const AnalisisClima = {
     if (!p || !h) return []
     const patio = plantas.filter((x) => x.estado === 'activa' && x.ubicacion === 'patio')
     const r: AvisoClima[] = []
-
-    const mm = AnalisisClima.lluviaHoyProbable(p, hoy)
-    if (mm !== undefined) {
-      r.push({ tipo: 'lluvia', titulo: `Lluvia hoy: ${Formato.numero(mm)} mm`,
-        texto: 'Las del patio no necesitan riego. Si viene fuerte, protegé las plántulas.' })
-    } else if (AnalisisClima.lluviaAyer(p, hoy) >= AnalisisClima.lluviaQueRiega) {
-      r.push({ tipo: 'llovio', titulo: `Ayer llovieron ${Formato.numero(AnalisisClima.lluviaAyer(p, hoy))} mm`,
-        texto: 'Las macetas del patio deberían estar húmedas: levantalas antes de regar.' })
-    }
     if (h.maxC !== undefined && h.maxC >= AnalisisClima.calorFuerte) {
       r.push({ tipo: 'calor', titulo: `Calor fuerte: ${Formato.numero(h.maxC)} °C`,
         texto: 'Regá temprano o al atardecer. Las macetas de tela se secan rápido: fijate todos los días.' })
@@ -164,11 +141,9 @@ export const AnalisisClima = {
     if (!p || !h) return undefined
     const partes: string[] = []
     if (h.maxC !== undefined && h.minC !== undefined) partes.push(`hoy ${Formato.numero(h.minC)}–${Formato.numero(h.maxC)} °C`)
-    partes.push(`lluvia hoy ${Formato.numero(h.lluviaMM)} mm` + (h.probLluvia !== undefined ? ` (${h.probLluvia} %)` : ''))
     if (h.humedad !== undefined) partes.push(`humedad ${redondear(h.humedad)} %`)
-    partes.push(`lluvia ayer ${Formato.numero(AnalisisClima.lluviaAyer(p, hoy))} mm`)
     const m = diaClimaDesde(p, 1, hoy)
-    if (m) partes.push(`mañana ${Formato.numero(m.lluviaMM)} mm` + (m.maxC !== undefined ? `, máx ${Formato.numero(m.maxC)} °C` : ''))
+    if (m?.maxC !== undefined) partes.push(`mañana máx ${Formato.numero(m.maxC)} °C`)
     return 'Clima en CABA: ' + partes.join('; ') + '.'
   },
 }

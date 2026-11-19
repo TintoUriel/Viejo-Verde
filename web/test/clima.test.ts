@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { AnalisisClima, diaClima, diaClimaDesde, OpenMeteo, type DiaClima, type Pronostico } from '../src/core/clima'
 import { ContextoAsistente } from '../src/core/contexto'
-import { D, datosVacios, planta } from '../src/core/datos'
+import { D, datosVacios } from '../src/core/datos'
 import { ultimaFecha, type Planta } from '../src/core/modelos'
 import { Tareas, type TipoTarea } from '../src/core/tareas'
 import { auto, hoyTest, reg } from './ayudas'
@@ -50,20 +50,14 @@ describe('Open-Meteo', () => {
 })
 
 describe('Riego según el clima', () => {
-  it('si ayer llovió no pide regar en el patio', () => {
-    const p = auto({ dia: 15, registros: [reg('riego', 3)] }) // le tocaba Top Veg
-    const llovio = pronostico({ ayer: { lluviaMM: 8 } })
-    const t = tipos(p, llovio)
-    expect(t.has('riego')).toBe(false)
-    expect(t.has('fertilizante')).toBe(false)
-    // Adentro no le llueve.
-    const adentro = auto({ dia: 15, ubicacion: 'interior', registros: [reg('riego', 3)] })
-    expect(tipos(adentro, llovio).has('fertilizante')).toBe(true)
-  })
-
-  it('una lluvia liviana no cuenta', () => {
-    const p = auto({ dia: 5, registros: [reg('riego', 2)] })
-    expect(tipos(p, pronostico({ ayer: { lluviaMM: 2 } })).has('riego')).toBe(true)
+  it('la lluvia no cuenta como riego: el patio está techado', () => {
+    const p = auto({ dia: 15, registros: [reg('riego', 3)] }) // le toca Top Veg
+    const llovio = pronostico({ ayer: { lluviaMM: 25 }, hoy: { lluviaMM: 30, probLluvia: 95 } })
+    expect(tipos(p, llovio).has('fertilizante')).toBe(true)
+    const riego = Tareas.generar({ plantas: [auto({ dia: 5, registros: [reg('riego', 2)] })], hoy: hoyTest, clima: llovio })
+      .find((x) => x.tipo === 'riego')
+    expect(riego).toBeDefined()
+    expect(riego?.detalle).not.toContain('lluvia')
   })
 
   it('con calor pide regar al día siguiente', () => {
@@ -74,16 +68,6 @@ describe('Riego según el clima', () => {
     expect(t.find((x) => x.tipo === 'riego')?.detalle).toContain('Hace calor')
   })
 
-  it('la lluvia pronosticada agrega una nota', () => {
-    const p = auto({ dia: 5, registros: [reg('riego', 2)] })
-    const lluvia = pronostico({ hoy: { lluviaMM: 10, probLluvia: 80 } })
-    const riego = Tareas.generar({ plantas: [p], hoy: hoyTest, clima: lluvia }).find((x) => x.tipo === 'riego')
-    expect(riego?.detalle).toContain('10 mm de lluvia hoy')
-    // Con poca probabilidad no se avisa.
-    const dudosa = pronostico({ hoy: { lluviaMM: 10, probLluvia: 30 } })
-    const r2 = Tareas.generar({ plantas: [p], hoy: hoyTest, clima: dudosa }).find((x) => x.tipo === 'riego')
-    expect(r2?.detalle).not.toContain('lluvia')
-  })
 })
 
 describe('Hongos', () => {
@@ -95,51 +79,38 @@ describe('Hongos', () => {
     expect(tipos(auto({ dia: 40, ubicacion: 'interior' }), humedo).has('hongos')).toBe(false)
     expect(tipos(auto({ dia: 40, registros: [reg('revision', 0)] }), humedo).has('hongos')).toBe(false)
     expect(tipos(auto({ dia: 40, registros: [reg('revision', 1)] }), humedo).has('hongos')).toBe(true)
+    // La lluvia sola (sin humedad alta) no moja los cogollos bajo el nylon.
+    expect(tipos(auto({ dia: 40 }), pronostico({ ayer: { lluviaMM: 20 }, hoy: { lluviaMM: 20 } })).has('hongos')).toBe(false)
   })
 })
 
 describe('Avisos', () => {
-  it('calor, frío, hongos, lluvia', () => {
+  it('calor, frío y hongos; nada de lluvia', () => {
     const plantas = [auto({ dia: 3 }), auto({ dia: 45 })]
     const p = pronostico({ ayer: { lluviaMM: 0, humedad: 85 }, hoy: { lluviaMM: 0, maxC: 35, minC: 4 } })
     expect(AnalisisClima.avisos(p, plantas, hoyTest).map((a) => a.tipo)).toEqual(['calor', 'frio', 'hongos'])
 
-    const lluvia = pronostico({ hoy: { lluviaMM: 15, probLluvia: 90 } })
-    expect(AnalisisClima.avisos(lluvia, plantas, hoyTest)[0]?.tipo).toBe('lluvia')
-    const llovio = pronostico({ ayer: { lluviaMM: 15 } })
-    expect(AnalisisClima.avisos(llovio, plantas, hoyTest)[0]?.tipo).toBe('llovio')
+    const lluvia = pronostico({ ayer: { lluviaMM: 15 }, hoy: { lluviaMM: 15, probLluvia: 90 } })
+    expect(AnalisisClima.avisos(lluvia, plantas, hoyTest)).toEqual([])
 
     expect(AnalisisClima.avisos(undefined, plantas, hoyTest)).toEqual([])
   })
 
   it('resumen para el asistente', () => {
-    const p = pronostico({ ayer: { lluviaMM: 3 }, hoy: { lluviaMM: 1.5, probLluvia: 40 } })
+    const p = pronostico({ ayer: { lluviaMM: 3 }, hoy: { lluviaMM: 1.5, probLluvia: 40, humedad: 72 }, maniana: { maxC: 28 } })
     const r = AnalisisClima.resumen(p, hoyTest)
-    expect(r).toContain('lluvia hoy 1,5 mm (40 %)')
-    expect(r).toContain('lluvia ayer 3 mm')
+    expect(r).toContain('humedad 72 %')
+    expect(r).toContain('mañana máx 28 °C')
+    expect(r).not.toContain('lluvia')
     const d = datosVacios()
     D.agregarPlanta(d, auto({ dia: 10 }))
     expect(ContextoAsistente.contexto(d, hoyTest, p)).toContain('Clima en CABA')
+    expect(ContextoAsistente.contexto(d, hoyTest)).toContain('techado con nylon')
     expect(ContextoAsistente.contexto(d, hoyTest)).toContain('cosecha estimada desde el')
   })
 })
 
-describe('Llovió y acciones en grupo', () => {
-  it('"Llovió" riega solo las activas del patio', () => {
-    const d = datosVacios()
-    const a = auto({ dia: 10, nombre: 'A' })
-    const b = auto({ dia: 10, ubicacion: 'interior', nombre: 'B' })
-    const c = auto({ dia: 100, nombre: 'C' }); c.estado = 'secando'
-    for (const p of [a, b, c]) D.agregarPlanta(d, p)
-    expect(D.llovio(d, hoyTest, 12)).toBe(1)
-    const riego = planta(d, a.id)?.registros.find((r) => r.tipo === 'riego')
-    expect(riego?.producto).toBe('Lluvia')
-    expect(riego?.nota).toBe('12 mm')
-    expect(planta(d, b.id)?.registros.find((r) => r.tipo === 'riego')).toBeUndefined()
-    // Cuenta como riego: ya no aparece la tarea.
-    expect(Tareas.generar({ plantas: d.plantas, hoy: hoyTest }).some((t) => t.plantaID === a.id && t.tipo === 'riego')).toBe(false)
-  })
-
+describe('Acciones en grupo', () => {
   it('registrar en grupo', () => {
     const d = datosVacios()
     const a = auto({ dia: 10 }), b = auto({ dia: 12 })
