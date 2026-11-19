@@ -121,13 +121,29 @@ export function EtiquetaEtapa({ etapa }: { etapa: Etapa }) {
   return <span class="etiqueta-etapa" style={colorEtapa(etapa)}>{nombreEtapa[etapa]}</span>
 }
 
-/** Barra de etapas con el marcador de hoy. */
-export function BarraEtapas({ estado, compacta = false }: { estado: EstadoEtapa; compacta?: boolean }) {
+/** Cuánto del ciclo (de 0 a 1) ya pasó: 1 si la planta ya no está creciendo. */
+export function progresoCiclo(estado: EstadoEtapa): number {
   const tramos = estado.tramos.filter((t) => duracion(t) > 0)
   const inicio = tramos[0]?.desdeDia ?? 0
   const total = Math.max((tramos[tramos.length - 1]?.hastaDia ?? 1) - inicio, 1)
+  if (!DE_CULTIVO.includes(estado.etapa)) return 1
+  return Math.min(Math.max(estado.dia - inicio + 0.5, 0), total) / total
+}
+
+/** Anillo con el avance del ciclo, del color de la etapa. Adentro: la semana, o un ícono si ya se cosechó. */
+export function AnilloEtapa({ estado, children }: { estado: EstadoEtapa; children: ComponentChildren }) {
+  return (
+    <span class="anillo-etapa" style={{ ...colorEtapa(estado.etapa), '--p': progresoCiclo(estado).toFixed(3) }} aria-hidden="true">
+      {children}
+    </span>
+  )
+}
+
+/** Barra de etapas con el marcador de hoy. */
+export function BarraEtapas({ estado, compacta = false }: { estado: EstadoEtapa; compacta?: boolean }) {
+  const tramos = estado.tramos.filter((t) => duracion(t) > 0)
   const vivo = DE_CULTIVO.includes(estado.etapa)
-  const posicion = vivo ? Math.min(Math.max(estado.dia - inicio + 0.5, 0), total) / total : 1
+  const posicion = progresoCiclo(estado)
   return (
     <div class={`barra-etapas${compacta ? ' compacta' : ''}`} role="img" aria-label={`Etapa: ${nombreEtapa[estado.etapa]}, día ${estado.dia}`}>
       <div class="pista">

@@ -4,7 +4,7 @@ import {
 } from '../app/almacen'
 import { ir } from '../app/router'
 import { avisar, confirmar } from '../app/ui'
-import { BotonGrande, Encabezado, Girando, Pastilla, Tarjeta } from '../componentes'
+import { BotonGrande, Girando, Pastilla, Tarjeta } from '../componentes'
 import { AnalisisClima, diaClima, diaClimaDesde, type DiaClima } from '../core/clima'
 import { Temporada } from '../core/consejos'
 import { Formato } from '../core/formato'
@@ -18,43 +18,53 @@ export function VistaHoy() {
   const consejo = Temporada.consejo(hoy.value)
   return (
     <main class="pantalla">
-      <Encabezado titulo="Hoy" />
-      <p class="fecha-hoy">{Formato.mayusculaInicial(Formato.fechaLarga(hoy.value))}</p>
+      <Tablero />
       <AvisoInstalar />
-      <Tarjeta fondo="ambar">
-        <h3><Icono nombre="calendario" />{consejo.titulo}</h3>
-        <p class="texto">{consejo.texto}</p>
-      </Tarjeta>
       <TarjetaClima />
-      <Resumen />
+      <Tarjeta fondo="ambar" class="consejo">
+        <span class="icono-consejo"><Icono nombre="calendario" tam={20} /></span>
+        <div class="cuerpo">
+          <h3>{consejo.titulo}</h3>
+          <p class="texto">{consejo.texto}</p>
+        </div>
+      </Tarjeta>
       <ListaTareas />
       <button class="boton-ancho" onClick={() => ir('planificar')}><Icono nombre="calendario" />Planificar la próxima tanda</button>
     </main>
   )
 }
 
-// ─── Resumen y cupo REPROCANN ───
+// ─── Tablero: el día, lo pendiente y el cupo REPROCANN ───
 
-function Resumen() {
+function Tablero() {
   const c = cupo.value
+  const n = tareas.value.length
+  const sinPlantas = datos.value.plantas.length === 0
   return (
-    <>
-      <div class="resumen">
-        <Dato numero={String(c.activas)} texto="Activas" />
-        <Dato numero={`${c.enFlor}/${c.limite}`} texto="En flor" color={c.excedido ? 'var(--alerta)' : undefined} />
-        <Dato numero={String(c.secando)} texto="Secando" color="var(--ambar)" />
-        <Dato numero={String(c.curando)} texto="Curando" color="var(--ambar)" />
+    <header class="tablero">
+      <Icono nombre="hoja" tam={190} class="fondo-hoja" />
+      <p class="fecha">{Formato.mayusculaInicial(Formato.fechaLarga(hoy.value))}</p>
+      <h1>
+        {sinPlantas ? 'Arrancá tu cultivo'
+          : n === 0 ? 'Todo al día'
+          : <><span class="cifra">{n}</span> {n === 1 ? 'cosa para hacer hoy' : 'cosas para hacer hoy'}</>}
+      </h1>
+      <div class="cifras-hoy">
+        <CifraHoy numero={String(c.activas)} texto="Activas" />
+        <CifraHoy numero={`${c.enFlor}/${c.limite}`} texto="En flor" color={c.excedido ? '#ff9c8c' : undefined} />
+        <CifraHoy numero={String(c.secando)} texto="Secando" color="#f3c26b" />
+        <CifraHoy numero={String(c.curando)} texto="Curando" color="#f3c26b" />
       </div>
       {c.excedido && (
-        <p class="peligro-texto con-icono"><Icono nombre="prohibido" />Te pasaste del cupo REPROCANN: {c.enFlor} plantas en flor (máximo {c.limite}).</p>
+        <p class="exceso"><Icono nombre="prohibido" tam={18} />Te pasaste del cupo REPROCANN: {c.enFlor} plantas en flor (máximo {c.limite}).</p>
       )}
-    </>
+    </header>
   )
 }
 
-function Dato(p: { numero: string; texto: string; color?: string }) {
+function CifraHoy(p: { numero: string; texto: string; color?: string }) {
   return (
-    <div class="dato" style={p.color ? { '--c': p.color } : undefined}>
+    <div class="cifra-hoy" style={p.color ? { '--c': p.color } : undefined}>
       <span class="numero">{p.numero}</span>
       <span class="texto">{p.texto}</span>
     </div>
@@ -173,7 +183,7 @@ function TarjetaClima() {
           </div>
           {m && <p class="nota">Mañana: {temperaturas(m)} · {Formato.numero(m.lluviaMM)} mm</p>}
           {avisosClima.value.map((a) => (
-            <div class="aviso-clima" key={a.tipo}>
+            <div class="aviso-clima" key={a.tipo} style={{ '--c': colorAviso[a.tipo] }}>
               <div class="titulo con-icono" style={{ color: colorAviso[a.tipo] }}><Icono nombre={iconoAviso[a.tipo]} tam={18} />{a.titulo}</div>
               <div class="texto">{a.texto}</div>
             </div>

@@ -25,8 +25,8 @@ export default defineConfig({
         scope: base,
         display: 'standalone',
         orientation: 'portrait',
-        background_color: '#F2F2F7',
-        theme_color: '#2E7D3A',
+        background_color: '#EAEEE4',
+        theme_color: '#12321F',
         icons: [
           { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icon-512.png', sizes: '512x512', type: 'image/png' },
@@ -34,7 +34,7 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,webmanifest,woff2}'],
         navigateFallback: `${base}index.html`,
         // Nada de caché para las APIs: el clima, Claude y la planilla van siempre a la red.
         runtimeCaching: [],

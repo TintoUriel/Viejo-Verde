@@ -87,10 +87,17 @@ function Cabecera({ p, e }: { p: Planta; e: EstadoEtapa }) {
   return (
     <Tarjeta class="cabecera-planta" style={estiloEtapa(e.etapa)}>
       <div class="linea">
-        <span class="etapa">{nombreEtapa[e.etapa]}</span>
-        {p.estado === 'activa' && <span class="dia">Día {e.dia} · Sem {semana(e)}</span>}
+        <div class="izq">
+          <span class="etapa">{nombreEtapa[e.etapa]}</span>
+          <p class="nota">{partes.filter(Boolean).join(' · ')}</p>
+        </div>
+        {p.estado === 'activa' && (
+          <div class="dia-grande" aria-label={`Día ${e.dia}, semana ${semana(e)}`}>
+            <span class="n">{e.dia}</span>
+            <span class="u">días · sem {semana(e)}</span>
+          </div>
+        )}
       </div>
-      <p class="nota">{partes.filter(Boolean).join(' · ')}</p>
       <BarraEtapas estado={e} />
       {p.estado === 'activa' && p.sexo !== 'macho' && (
         <p class="nota con-icono" style={{ color: 'var(--ambar)' }}><Icono nombre="calendario" tam={16} />Cosecha estimada desde el {Formato.fechaCorta(Planificador.cosechaEstimadaDe(p))}</p>

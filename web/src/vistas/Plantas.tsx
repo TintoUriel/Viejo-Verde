@@ -1,11 +1,11 @@
 import { useSignal } from '@preact/signals'
 import { datos, estadoDe } from '../app/almacen'
 import { ir } from '../app/router'
-import { BarraEtapas, BotonGrande, Encabezado, EtiquetaEtapa, Seccion, Vacio } from '../componentes'
+import { AnilloEtapa, BarraEtapas, BotonGrande, Encabezado, EtiquetaEtapa, Seccion, Vacio } from '../componentes'
 import { semana, type EstadoEtapa } from '../core/etapas'
 import { Formato } from '../core/formato'
 import { nombreTipoPlanta, type Planta } from '../core/modelos'
-import { Icono } from '../iconos'
+import { Icono, type NombreIcono } from '../iconos'
 import { FormPlanta } from './FormPlanta'
 
 export function VistaPlantas() {
@@ -20,11 +20,17 @@ export function VistaPlantas() {
       <Encabezado titulo="Plantas" acciones={
         <button class="boton-icono" aria-label="Agregar planta" onClick={() => { nueva.value = true }}><Icono nombre="masCirculo" tam={28} /></button>
       } />
-      <div class="fila-botones">
-        <button class="mini-boton" onClick={() => ir('planificar')}><Icono nombre="calendario" tam={16} />Planificar</button>
-        <button class="mini-boton" onClick={() => ir('cosechas')}><Icono nombre="grafico" tam={16} />Cosechas</button>
-        <button class="mini-boton" onClick={() => ir('patio')}><Icono nombre="sol" tam={16} />Patio</button>
-      </div>
+      <nav class="accesos" aria-label="Herramientas">
+        <button class="acceso" onClick={() => ir('planificar')}>
+          <span class="icono-acceso"><Icono nombre="calendario" /></span>Planificar
+        </button>
+        <button class="acceso" onClick={() => ir('cosechas')} style={{ '--c': 'var(--ambar)' }}>
+          <span class="icono-acceso"><Icono nombre="grafico" /></span>Cosechas
+        </button>
+        <button class="acceso" onClick={() => ir('patio')} style={{ '--c': 'var(--teal)' }}>
+          <span class="icono-acceso"><Icono nombre="sol" /></span>Patio
+        </button>
+      </nav>
 
       {plantas.length === 0 && (
         <Vacio icono="brote" titulo="Sin plantas" texto="Tocá + para agregar la primera.">
@@ -54,6 +60,11 @@ function FilaPlanta({ planta }: { planta: Planta }) {
   const e = estadoDe(planta)
   return (
     <button class="fila planta-fila" onClick={() => ir(`planta/${planta.id}`)}>
+      <AnilloEtapa estado={e}>
+        {planta.estado === 'activa'
+          ? <span class="sem"><b>{semana(e)}</b><small>sem</small></span>
+          : <Icono nombre={ICONO_ESTADO[planta.estado]} tam={20} />}
+      </AnilloEtapa>
       <div class="principal">
         <div class="cabeza">
           <span class="nombre">{planta.nombre}</span>
@@ -67,6 +78,10 @@ function FilaPlanta({ planta }: { planta: Planta }) {
       <span class="chevron" aria-hidden="true">›</span>
     </button>
   )
+}
+
+const ICONO_ESTADO: Record<Planta['estado'], NombreIcono> = {
+  activa: 'brote', secando: 'viento', curando: 'frasco', terminada: 'check', descartada: 'cruz',
 }
 
 function subtitulo(p: Planta, e: EstadoEtapa): string {
