@@ -3,7 +3,7 @@ import { useEffect, useState } from 'preact/hooks'
 import { alVolver, borrarTodo, cambiar, datos, entrarModoEjemplo, modoEjemplo, salirModoEjemplo } from '../app/almacen'
 import { aplicarBackup, elegirBackup, exportarBackup } from '../app/backup'
 import { estaPersistido, pedirPersistencia } from '../app/db'
-import { guardarSecretos, secretos, VERSION_APP } from '../app/servicios'
+import { secretos, VERSION_APP } from '../app/servicios'
 import { estadoSync, Sincronizador } from '../app/sincronizador'
 import { avisar, confirmar, mostrar } from '../app/ui'
 import { Contador, Encabezado, Girando, Interruptor, Seccion } from '../componentes'
@@ -16,7 +16,6 @@ export function VistaAjustes() {
   return (
     <main class="pantalla ancha multicolumna">
       <Encabezado titulo="Ajustes" />
-      <SeccionAsistente />
       <SeccionPlanilla />
       <SeccionFertilizantes />
       <SeccionBackup />
@@ -24,44 +23,11 @@ export function VistaAjustes() {
       <SeccionPeligro />
       <SeccionAlmacenamiento />
       <Seccion pie={s.activada
-        ? 'Tus datos quedan en este teléfono. Lo único que sale es lo que le mandás al asistente y lo que se anota en tu planilla de Google.'
-        : 'Tus datos quedan solo en este teléfono. Lo único que sale es lo que le mandás al asistente.'}>
+        ? 'Tus datos quedan en este teléfono. Lo único que sale es lo que se anota en tu planilla de Google.'
+        : 'Tus datos quedan solo en este teléfono.'}>
         <div class="fila"><span style={{ flex: 1 }}>Versión</span><span class="valor">{VERSION_APP}</span></div>
       </Seccion>
     </main>
-  )
-}
-
-// ─── Asistente ───
-
-function SeccionAsistente() {
-  const [clave, setClave] = useState('')
-  const guardada = secretos.value.apiKey !== undefined
-  const limpia = clave.trim()
-  return (
-    <Seccion titulo="Asistente (Claude)"
-      pie="Queda guardada solo en este teléfono, nunca en los backups. La conseguís en console.anthropic.com → API Keys.">
-      {guardada ? (
-        <>
-          <div class="fila"><span class="con-icono" style={{ color: 'var(--verde)', fontWeight: 600 }}><Icono nombre="check" />API key guardada</span></div>
-          <button class="fila accion peligro" onClick={async () => {
-            if (await confirmar('¿Borrar la API key?', 'Borrar', { destructiva: true })) await guardarSecretos({ apiKey: undefined })
-          }}>Borrar API key</button>
-        </>
-      ) : (
-        <>
-          <div class="fila">
-            <input type="password" placeholder="sk-ant-…" aria-label="API key de Anthropic" autoComplete="off" autoCapitalize="off"
-              spellcheck={false} value={clave} onInput={(e) => setClave((e.target as HTMLInputElement).value)} />
-          </div>
-          <button class="fila accion" disabled={limpia.length < 20} onClick={async () => {
-            await guardarSecretos({ apiKey: limpia })
-            setClave('')
-            avisar('API key guardada')
-          }}>Guardar API key</button>
-        </>
-      )}
-    </Seccion>
   )
 }
 
@@ -82,7 +48,7 @@ function SeccionPlanilla() {
 
   return (
     <Seccion titulo="Planilla de Google"
-      pie={'Sube y baja: cada cosa que registrás se anota en las hojas Registro y Plantas; el patio, dónde va cada planta y las dosis de las etiquetas van a la hoja Configuración. La planilla guarda además una copia completa de tus datos. Al abrir la app, si la copia de la planilla es más nueva, se baja sola. Las fotos quedan en cada teléfono; nunca se mandan fotos, la API key ni el chat. "Sincronizar todo" manda el historial completo: repetirlo no duplica nada.'}>
+      pie={'Sube y baja: cada cosa que registrás se anota en las hojas Registro y Plantas; el patio, dónde va cada planta y las dosis de las etiquetas van a la hoja Configuración. La planilla guarda además una copia completa de tus datos. Al abrir la app, si la copia de la planilla es más nueva, se baja sola. Las fotos quedan en cada teléfono: nunca se mandan. "Sincronizar todo" manda el historial completo: repetirlo no duplica nada.'}>
       {s.configurada ? (
         <>
           <div class="fila">

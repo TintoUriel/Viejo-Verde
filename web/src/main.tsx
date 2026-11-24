@@ -11,10 +11,10 @@ import { Formato } from './core/formato'
 import { Icono, IconoPestania } from './iconos'
 import './estilos.css'
 import { VistaAjustes } from './vistas/Ajustes'
-import { VistaAsistente } from './vistas/Asistente'
 import { PantallaContrasenia } from './vistas/Contrasenia'
 import { VistaCosechas } from './vistas/Cosechas'
 import { DetallePlanta } from './vistas/DetallePlanta'
+import { VistaGuia } from './vistas/Guia'
 import { VistaHoy } from './vistas/Hoy'
 import { VistaLineaTiempo } from './vistas/LineaTiempo'
 import { VistaPatio } from './vistas/Patio'
@@ -46,7 +46,7 @@ window.addEventListener('online', () => { if (cargado.value) alVolver() })
 
 // ─── Pantallas ───
 
-const NOMBRES: Record<Pestania, string> = { hoy: 'Hoy', plantas: 'Plantas', semillas: 'Semillas', asistente: 'Asistente', ajustes: 'Ajustes' }
+const NOMBRES: Record<Pestania, string> = { hoy: 'Hoy', plantas: 'Plantas', semillas: 'Semillas', guia: 'Guía', ajustes: 'Ajustes' }
 
 function Pantalla({ r }: { r: string }) {
   const partes = r.split('/')
@@ -54,7 +54,7 @@ function Pantalla({ r }: { r: string }) {
     case 'hoy': return <VistaHoy />
     case 'plantas': return <VistaPlantas />
     case 'semillas': return <VistaSemillas />
-    case 'asistente': return <VistaAsistente />
+    case 'guia': return <VistaGuia />
     case 'ajustes': return <VistaAjustes />
     case 'planificar': return <VistaPlanificador />
     case 'cosechas': return <VistaCosechas />

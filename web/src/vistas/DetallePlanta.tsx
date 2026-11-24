@@ -320,7 +320,7 @@ function FotosPlanta({ p }: { p: Planta }) {
         <button class="boton-icono" aria-label="Agregar foto" onClick={() => void agregarFoto(p.id)} style={{ margin: '-10px -8px' }}><Icono nombre="masCirculo" tam={26} /></button>
       </div>
       {p.fotos.length === 0 ? (
-        <p class="nota">Sacale fotos seguido: sirve para comparar y para el asistente.</p>
+        <p class="nota">Sacale fotos seguido: sirve para comparar cómo va y para mostrársela a una IA si algo se ve raro.</p>
       ) : (
         <>
           <div class="miniaturas">

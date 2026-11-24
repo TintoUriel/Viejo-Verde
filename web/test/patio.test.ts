@@ -5,8 +5,8 @@ import {
   CABA, daElSol, diasEntre, horasEn, horasPromedio, ladoHacia, luzDelDia, mapaDeSol, mejoresLugares, muestrasDelDia,
   nivel, nombreRumbo, nuevoObstaculo, patioPorDefecto, posicionSol, rumboLado, type Patio,
 } from '../src/core/patio'
-import { ContextoAsistente } from '../src/core/contexto'
 import { datosDeEjemplo } from '../src/core/ejemplo'
+import { Historia } from '../src/core/historia'
 import { aJSON } from '../src/core/util'
 
 const { latitud, longitud } = CABA
@@ -219,20 +219,20 @@ describe('Patio en los datos', () => {
   })
 })
 
-describe('Patio en el asistente', () => {
-  it('le pasa el plano y el sol de cada planta ubicada', () => {
+describe('Patio en la historia que se copia para una IA', () => {
+  it('dice cuánto sol le llega a la planta donde está ubicada', () => {
     const hoy = ba(2026, 11, 20, 10)
-    const c = ContextoAsistente.contexto(datosDeEjemplo(hoy), hoy)
-    expect(c).toContain('Patio: 4 × 7 m')
-    expect(c).toMatch(/Sol directo estimado hoy donde está cada planta: Banana 1 [\d,]+ h/)
-    const linea = c.split('\n').find((x) => x.startsWith('Patio:'))!
-    expect(linea).not.toContain('Regular 2') // sin lugar en el plano
+    const d = datosDeEjemplo(hoy)
+    const banana = d.plantas.find((x) => x.nombre === 'Banana 1')!
+    expect(Historia.texto(banana, d, hoy)).toMatch(/Sol directo estimado donde está: [\d,]+ h hoy/)
+    const sinLugar = d.plantas.find((x) => x.nombre === 'Regular 2')! // sin lugar en el plano
+    expect(Historia.texto(sinLugar, d, hoy)).not.toContain('Sol directo')
   })
 
-  it('sin plano no dice nada del patio', () => {
+  it('sin plano no dice nada del sol', () => {
     const hoy = ba(2026, 11, 20, 10)
     const d = datosDeEjemplo(hoy)
     delete d.patio
-    expect(ContextoAsistente.contexto(d, hoy)).not.toContain('Patio:')
+    expect(Historia.texto(d.plantas[0], d, hoy)).not.toContain('Sol directo')
   })
 })

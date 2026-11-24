@@ -144,7 +144,7 @@ export function NuevaNota(p: { plantaID: string; onCerrar: () => void }) {
             onInput={(e) => setTexto((e.target as HTMLTextAreaElement).value)} />
         </div>
       </Seccion>
-      <Seccion pie={tipo === 'problema' ? 'Después podés preguntarle al asistente y mandarle la foto.' : undefined}>
+      <Seccion pie={tipo === 'problema' ? 'Para un diagnóstico: en la ficha de la planta, "Copiar su historia para una IA", y pegala junto con la foto.' : undefined}>
         {vista ? (
           <>
             <div class="fila"><img src={vista} alt="" style={{ maxHeight: '220px', borderRadius: '12px', margin: '0 auto' }} /></div>

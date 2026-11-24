@@ -1,7 +1,7 @@
 # Viejo Verde 🌱
 
 App para llevar el autocultivo (REPROCANN, patio en CABA): en qué etapa está cada planta, qué toca hacer
-hoy (con ml de agua y de fertilizante), clima, semillas, polen, cosechas y un asistente con Claude.
+hoy (con ml de agua y de fertilizante), clima, semillas, polen, cosechas, el sol del patio y una guía de dudas.
 
 **Es una app web (PWA):** se abre en <https://tintouriel.github.io/Viejo-Verde/> y se instala en el iPhone
 desde Safari, sin firmas ni renovaciones. Sin backend: todo queda en el teléfono (y, si la activás, una
@@ -23,10 +23,8 @@ Cada push a `main` publica la versión nueva sola. En el teléfono aparece el ca
 
 1. En la app vieja: **Ajustes → Backup → Incluir fotos → Exportar backup** → guardalo en Archivos.
 2. En la web: **Ajustes → Backup → Importar backup** → elegí ese archivo. Es el mismo formato.
-3. Volvé a cargar la **API key** de Anthropic y la **URL y el token** de la planilla (no viajan en el backup).
+3. La **URL y el token** de la planilla no viajan en el backup: se cargan solos al entrar con la contraseña.
 4. Si usás la planilla: **Ajustes → Planilla de Google → Sincronizar todo** (no duplica nada).
-
-El chat del asistente no se pasa (no está en el backup).
 
 ## Qué cambió respecto de la app de iPhone
 
@@ -38,8 +36,10 @@ El chat del asistente no se pasa (no está en el backup).
   copia, la app rearma tus datos leyendo Registro y Plantas (por ejemplo, lo que mandó la app de iPhone).
   Las fotos no viajan: quedan en cada teléfono. Hay que actualizar el script una vez (ver
   [`apps-script/README.md`](apps-script/README.md)).
-- La API key, la URL y el token de la planilla quedan en el almacenamiento del navegador del teléfono
-  (no en el llavero). Nunca van en los backups.
+- La URL y el token de la planilla quedan en el almacenamiento del navegador del teléfono (no en el llavero).
+  Nunca van en los backups.
+- **Sin asistente con Claude** (no hace falta pagar una API). La pestaña **Guía** tiene las dudas de siempre,
+  sin internet; para un problema puntual, en la ficha de la planta está **Copiar su historia para una IA**.
 - "Cargar datos de ejemplo" está siempre en Ajustes (antes solo en debug).
 - **Tu patio en Hoy**: arriba de todo está el plano con cada planta donde la ubicaste, con el anillo de su
   etapa y un número rojo si tiene algo para hoy. Tocás una y se abre su ficha (ahí no se arrastra nada, para
@@ -47,7 +47,7 @@ El chat del asistente no se pasa (no está en el backup).
 - **Próximos 7 días** (en Hoy): qué va a tocar cada día (riegos, fertilizante, neem…) y qué etapas empiezan,
   suponiendo que cada día hacés lo que toca.
 - **pH del drenaje** (en la ficha de la planta): el pH del agua que sale por abajo, anotado en el riego en el que
-  se midió. Va al historial, al asistente y a la planilla (fila "pH del drenaje").
+  se midió. Va al historial, a la historia que se copia para una IA y a la planilla (fila "pH del drenaje").
 - **Copiar su historia para una IA** (en la ficha de la planta): copia todo lo que le pasó a la planta (datos,
   sol, clima, pH y cada registro con su día y etapa), listo para pegar en ChatGPT, Claude o Gemini.
 - **Hoja Configuración** en la planilla: el patio, dónde está cada planta y las dosis de las etiquetas van ahí
@@ -55,7 +55,7 @@ El chat del asistente no se pasa (no está en el backup).
 - **Plano del patio** (nuevo, en **Plantas → Patio**): cargás las medidas, la altura de cada pared (y si hay un
   edificio más atrás), hacia dónde da (a mano o con la brújula del teléfono) y lo que hace sombra adentro. La app
   calcula las horas de sol directo de cada lugar (por temporada, por día o a una hora), marca los mejores
-  lugares, te deja ubicar cada maceta arrastrándola y se lo cuenta al asistente. La app de iPhone no lo usa
+  lugares y te deja ubicar cada maceta arrastrándola. La app de iPhone no lo usa
   (lo ignora si viene en un backup).
 
 ## Estructura
@@ -63,10 +63,10 @@ El chat del asistente no se pasa (no está en el backup).
 ```
 web/                   La app web (Vite + Preact + TypeScript).
   src/core/            Lógica pura portada de ViejoVerdeCore, testeada: modelo, etapas, tareas, dosis,
-                       clima, planificador, sol del patio, estadísticas, backup, pedido/respuesta de Claude,
-                       sync/ (eventos para la planilla, cola local, formato del POST).
-  src/app/             Almacén (IndexedDB), fotos, servicios (clima, Claude, planilla), navegación.
-  src/vistas/          Pantallas: Hoy, Plantas, Detalle, Semillas, Asistente, Ajustes, Planificar, Cosechas, Patio.
+                       clima, planificador, agenda de 7 días, sol del patio, estadísticas, backup, historia
+                       para una IA, guía, sync/ (eventos para la planilla, cola local, formato del POST).
+  src/app/             Almacén (IndexedDB), fotos, servicios (clima, planilla), navegación.
+  src/vistas/          Pantallas: Hoy, Plantas, Detalle, Semillas, Guía, Ajustes, Planificar, Cosechas, Patio.
   test/                Los mismos casos que Tests/ViejoVerdeCoreTests (Vitest).
 apps-script/           Web App de Google Apps Script que escribe en la planilla (Code.gs + instrucciones).
 .github/workflows/     web.yml publica en GitHub Pages; ipa.yml compila la app de iPhone vieja.
@@ -75,7 +75,7 @@ Sources/, Tests/       App de iPhone en SwiftUI (anterior). Se borra cuando la w
 
 - Datos: IndexedDB `viejo-verde` (clave `datos`, JSON igual al de los backups). Fotos: IndexedDB
   `viejo-verde-fotos` (JPEG achicados a 2048 px).
-- Cola de la planilla: clave `bandeja`. Secretos (API key, URL y token): clave `secretos`.
+- Cola de la planilla: clave `bandeja`. Secretos (URL y token de la planilla): clave `secretos`.
 - Fechas: todo se cuenta en días de Buenos Aires (UTC−3), como en la app de Swift.
 
 ## Desarrollo
@@ -109,8 +109,8 @@ Arrancá por **Ajustes → Probar la app → Cargar datos de ejemplo** para tene
 4. **Planificar** (Hoy, abajo, o Plantas): fechas estimadas de una tanda y gráfico de plantas en flor por
    semana contra el cupo de 9, con cuántas podrías germinar sin pasarte.
 5. **Cosechas** (Plantas): totales, gramos por cosecha, por variedad y por temporada.
-6. **Asistente**: cargá la API key en Ajustes, probá los chips y mandale una foto de una hoja.
-   📖 Guía = guía rápida offline. El chat queda guardado ("Nuevo chat" lo borra).
+6. **Guía**: riego, sexado, polen, cosecha, secado, curado y reciclar la tierra, sin internet. En la ficha de
+   una planta, **Copiar su historia para una IA** copia todo lo que le pasó para pegarlo en ChatGPT o Gemini.
 7. **Backup**: Exportar (con o sin fotos: abre el menú de compartir → Guardar en Archivos), Importar.
 8. **Planilla de Google** (Ajustes): configurala con [`apps-script/README.md`](apps-script/README.md)
    y tocá **Probar conexión**. En modo avión registrá algo: "Eventos pendientes" sube y baja solo al
@@ -121,9 +121,6 @@ Arrancá por **Ajustes → Probar la app → Cargar datos de ejemplo** para tene
 
 - Dosis de etiqueta por defecto: 2 ml/L para Top Veg y Top Bloom (la app usa la mitad). Ajustala en
   Ajustes → Fertilizantes con lo que dice tu botella.
-- El asistente usa `claude-sonnet-5-5` (Messages API, versión `2026-10-21`) con fallback automático
-  si un clasificador rechaza el pedido. Se llama directo desde el teléfono con tu API key; cada mensaje
-  se cobra en tu cuenta de Anthropic.
 
 ---
 

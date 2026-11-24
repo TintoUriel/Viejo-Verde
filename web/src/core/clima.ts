@@ -135,7 +135,7 @@ export const AnalisisClima = {
     return r
   },
 
-  /** Una línea para el contexto del asistente. */
+  /** Una línea con el clima, para la historia que se copia para una IA. */
   resumen(p: Pronostico | undefined, hoy: Date): string | undefined {
     const h = p && diaClima(p, hoy)
     if (!p || !h) return undefined

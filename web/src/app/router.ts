@@ -3,12 +3,13 @@ import { signal } from '@preact/signals'
 // Navegación con "#" en la dirección (#/plantas, #/planta/<id>): GitHub Pages no sabe nada de las
 // pantallas de la app, y así recargar en cualquier pantalla funciona igual.
 
-export type Pestania = 'hoy' | 'plantas' | 'semillas' | 'asistente' | 'ajustes'
-export const PESTANIAS: Pestania[] = ['hoy', 'plantas', 'semillas', 'asistente', 'ajustes']
+export type Pestania = 'hoy' | 'plantas' | 'semillas' | 'guia' | 'ajustes'
+export const PESTANIAS: Pestania[] = ['hoy', 'plantas', 'semillas', 'guia', 'ajustes']
 
 function leer(): string {
   const r = decodeURIComponent(location.hash.replace(/^#\/?/, ''))
-  return r === '' ? 'hoy' : r
+  // "asistente" era la pestaña del chat con Claude: ahora es la guía.
+  return r === '' ? 'hoy' : r === 'asistente' ? 'guia' : r
 }
 
 export const ruta = signal(leer())

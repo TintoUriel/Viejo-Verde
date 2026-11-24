@@ -356,7 +356,7 @@ export const colorAviso: Record<TipoAvisoClima, string> = {
 }
 
 // Íconos de la barra de pestañas.
-export function IconoPestania({ nombre }: { nombre: 'hoy' | 'plantas' | 'semillas' | 'asistente' | 'ajustes' }) {
+export function IconoPestania({ nombre }: { nombre: 'hoy' | 'plantas' | 'semillas' | 'guia' | 'ajustes' }) {
   return (
     <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" {...trazo}>
       {nombre === 'hoy' && TRAZOS.sol}
@@ -368,9 +368,7 @@ export function IconoPestania({ nombre }: { nombre: 'hoy' | 'plantas' | 'semilla
         </>
       )}
       {nombre === 'semillas' && TRAZOS.semilla}
-      {nombre === 'asistente' && (
-        <path d="M5 4.5h14a2 2 0 0 1 2 2v8.5a2 2 0 0 1-2 2h-8.5L6 20.5v-3.5H5a2 2 0 0 1-2-2V6.5a2 2 0 0 1 2-2Z" />
-      )}
+      {nombre === 'guia' && TRAZOS.libro}
       {nombre === 'ajustes' && (
         <>
           <path d="M4 6.5h9M17 6.5h3M4 12h3M11 12h9M4 17.5h11M19 17.5h1" />

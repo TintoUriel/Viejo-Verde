@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { AnalisisClima, diaClima, diaClimaDesde, OpenMeteo, type DiaClima, type Pronostico } from '../src/core/clima'
-import { ContextoAsistente } from '../src/core/contexto'
 import { D, datosVacios } from '../src/core/datos'
+import { Historia } from '../src/core/historia'
 import { ultimaFecha, type Planta } from '../src/core/modelos'
 import { Tareas, type TipoTarea } from '../src/core/tareas'
 import { auto, hoyTest, reg } from './ayudas'
@@ -96,7 +96,7 @@ describe('Avisos', () => {
     expect(AnalisisClima.avisos(undefined, plantas, hoyTest)).toEqual([])
   })
 
-  it('resumen para el asistente', () => {
+  it('resumen para la historia que se copia para una IA', () => {
     const p = pronostico({ ayer: { lluviaMM: 3 }, hoy: { lluviaMM: 1.5, probLluvia: 40, humedad: 72 }, maniana: { maxC: 28 } })
     const r = AnalisisClima.resumen(p, hoyTest)
     expect(r).toContain('humedad 72 %')
@@ -104,9 +104,10 @@ describe('Avisos', () => {
     expect(r).not.toContain('lluvia')
     const d = datosVacios()
     D.agregarPlanta(d, auto({ dia: 10 }))
-    expect(ContextoAsistente.contexto(d, hoyTest, p)).toContain('Clima en CABA')
-    expect(ContextoAsistente.contexto(d, hoyTest)).toContain('techado con nylon')
-    expect(ContextoAsistente.contexto(d, hoyTest)).toContain('cosecha estimada desde el')
+    expect(Historia.texto(d.plantas[0], d, hoyTest, p)).toContain('Clima en CABA')
+    expect(Historia.texto(d.plantas[0], d, hoyTest)).not.toContain('Clima en CABA')
+    expect(Historia.texto(d.plantas[0], d, hoyTest)).toContain('techado con nylon')
+    expect(Historia.texto(d.plantas[0], d, hoyTest)).toContain('Cosecha estimada desde el')
   })
 })
 

@@ -5,7 +5,7 @@ import { createStore, del, get, keys, set } from 'idb-keyval'
 const general = createStore('viejo-verde', 'general')
 const fotos = createStore('viejo-verde-fotos', 'fotos')
 
-export type Clave = 'datos' | 'ejemplo' | 'chat' | 'chat-ejemplo' | 'bandeja' | 'clima' | 'secretos' | 'preferencias'
+export type Clave = 'datos' | 'ejemplo' | 'bandeja' | 'clima' | 'secretos' | 'preferencias'
 
 export const DB = {
   leer: <T>(clave: Clave | string) => get<T>(clave, general),

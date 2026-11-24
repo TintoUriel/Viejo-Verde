@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { HistorialChat, nuevoMensaje } from '../src/core/claude'
 import { D, datosVacios, planta } from '../src/core/datos'
 import { Estadisticas, lineaDeTiempo, rendimiento } from '../src/core/estadisticas'
 import { nuevaPlanta, type Planta } from '../src/core/modelos'
@@ -69,17 +68,5 @@ describe('Estadísticas', () => {
     expect(t[t.length - 1].fecha).toBeUndefined()
     D.quitarFoto(d, 'a.jpg', p.id)
     expect(planta(d, p.id)!.fechasFotos['a.jpg']).toBeUndefined()
-  })
-
-  it('recortar el chat', () => {
-    const m = Array.from({ length: 100 }, (_, i) =>
-      nuevoMensaje(i % 2 === 0 ? 'usuario' : 'asistente', String(i), i % 2 === 0 ? { imagenJPEG: 'AQ==' } : {}))
-    const r = HistorialChat.recortar(m)
-    expect(r.length).toBe(HistorialChat.maxMensajes)
-    expect(r[r.length - 1].texto).toBe('99')
-    expect(r.filter((x) => x.imagenJPEG !== undefined).length).toBe(HistorialChat.maxFotos)
-    expect([...r].reverse().find((x) => x.rol === 'usuario')?.imagenJPEG).toBeDefined()
-    // No toca el original.
-    expect(m.filter((x) => x.imagenJPEG !== undefined).length).toBe(50)
   })
 })

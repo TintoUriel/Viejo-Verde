@@ -1,6 +1,5 @@
 import { computed, signal } from '@preact/signals'
 import { Agenda } from '../core/agenda'
-import { HistorialChat, type MensajeChat } from '../core/claude'
 import { AnalisisClima, diaClima, type Pronostico } from '../core/clima'
 import { Cupo } from '../core/consejos'
 import { D, datosVacios, leerDatos, planta, todasLasFotos, type Datos } from '../core/datos'
@@ -10,7 +9,7 @@ import { Etapas } from '../core/etapas'
 import { Formato } from '../core/formato'
 import { nombreFertilizante, type Planta } from '../core/modelos'
 import { Tareas, type AccionTarea, type DosisTarea, type Tarea } from '../core/tareas'
-import { aJSON, leerFecha } from '../core/util'
+import { aJSON } from '../core/util'
 import { DB, pedirPersistencia } from './db'
 import { Fotos } from './fotos'
 import { cargarSecretos, Clima } from './servicios'
@@ -26,8 +25,6 @@ export const ultimoError = signal<string | undefined>(undefined)
 export const hoy = signal(new Date())
 /** Pronóstico de CABA (Open-Meteo). Puede no haber si nunca hubo internet. */
 export const clima = signal<Pronostico | undefined>(undefined)
-/** Chat con el asistente (se guarda aparte). */
-export const chat = signal<MensajeChat[]>([])
 export const cargado = signal(false)
 
 /** El pronóstico solo sirve si tiene el día de hoy. */
@@ -55,7 +52,6 @@ export const estadoDe = (p: Planta) => Etapas.estado(p, hoy.value)
 export const dosisDe = (p: Planta): Dosis => CalculoDosis.dePlanta(p, hoy.value, datos.value.config)
 
 const claveDatos = () => (modoEjemplo.value ? 'ejemplo' : 'datos')
-const claveChat = () => (modoEjemplo.value ? 'chat-ejemplo' : 'chat')
 
 // ─── Arranque ───
 
@@ -65,7 +61,9 @@ export async function cargar(): Promise<void> {
   datos.value = d
   ultimoError.value = error
   clima.value = await Clima.cache()
-  chat.value = await leerChat('chat')
+  // Lo que quedó del chat con Claude (la app ya no lo tiene).
+  void DB.borrar('chat')
+  void DB.borrar('chat-ejemplo')
   await Sincronizador.cargar()
   Sincronizador.configurarCopia({
     // Los datos de ejemplo nunca suben ni se pisan con la copia de la planilla.
@@ -181,7 +179,6 @@ export async function entrarModoEjemplo(): Promise<void> {
   modoEjemplo.value = true
   datos.value = datosDeEjemplo(new Date())
   guardar()
-  chat.value = await leerChat('chat-ejemplo')
 }
 
 export async function salirModoEjemplo(): Promise<void> {
@@ -191,37 +188,8 @@ export async function salirModoEjemplo(): Promise<void> {
   const [d, error] = await leerGuardados('datos')
   datos.value = d
   ultimoError.value = error
-  chat.value = await leerChat('chat')
   // Las fotos sacadas durante el ejemplo no quedan dando vueltas.
   await Fotos.limpiar(todasLasFotos(d))
-}
-
-// ─── Chat ───
-
-export function agregarAlChat(m: MensajeChat): void {
-  chat.value = [...chat.value, m]
-  guardarChat()
-}
-
-export function borrarChat(): void {
-  chat.value = []
-  guardarChat()
-}
-
-function guardarChat(): void {
-  const clave = claveChat()
-  const json = aJSON(HistorialChat.recortar(chat.value))
-  cola = cola.then(() => DB.guardar(clave, json)).catch(() => undefined)
-}
-
-async function leerChat(clave: 'chat' | 'chat-ejemplo'): Promise<MensajeChat[]> {
-  const json = await DB.leer<string>(clave)
-  if (!json) return []
-  try {
-    return (JSON.parse(json) as MensajeChat[]).map((m) => ({ ...m, fecha: leerFecha(m.fecha) }))
-  } catch {
-    return []
-  }
 }
 
 // ─── Acciones rápidas ───

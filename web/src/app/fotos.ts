@@ -26,11 +26,6 @@ export const Fotos = {
     for (const n of await DB.nombresDeFotos()) if (!usadas.has(n)) await Fotos.borrar(n)
   },
 
-  /** JPEG para mandarle a Claude: lado mayor de 1568 px (lo que la API aprovecha), en base64. */
-  async paraClaude(archivo: Blob): Promise<string> {
-    return blobABase64(await achicar(archivo, 1568, 0.75))
-  },
-
   async base64(nombre: string): Promise<string | undefined> {
     const b = await DB.leerFoto(nombre)
     return b ? blobABase64(b) : undefined
