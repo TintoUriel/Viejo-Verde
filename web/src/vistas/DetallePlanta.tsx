@@ -40,26 +40,32 @@ export function DetallePlanta({ id }: { id: string }) {
   const e = estadoDe(p)
 
   return (
-    <main class="pantalla">
+    <main class="pantalla ancha">
       <Barra titulo={p.nombre} atras="plantas" textoAtras="Atrás"
         acciones={<button class="boton-texto" onClick={() => { editando.value = true }}>Editar</button>} />
       <Cabecera p={p} e={e} />
-      {p.estado === 'activa' && (
-        <>
-          <DosisDeHoy p={p} />
-          <AccionesRapidas p={p} e={e} onNota={() => { nota.value = true }} />
-        </>
-      )}
-      <Tarjeta fondo="verde">
-        <h3><Icono nombre="bombilla" />Consejos de {nombreEtapa[e.etapa].toLowerCase()}</h3>
-        <ul class="lista-puntos">{consejosEtapa(e.etapa).map((c) => <li key={c}>{c}</li>)}</ul>
-      </Tarjeta>
-      {p.estado === 'activa' && p.semilla === 'regular' && <SexoPlanta p={p} />}
-      <PolenYSemillas p={p} e={e} />
-      <FlujoCosecha p={p} />
-      <FotosPlanta p={p} />
-      <Historial p={p} onEditar={(r) => { registro.value = r }} />
-      <ZonaPeligrosa p={p} />
+      <div class="columnas planta-cols">
+        <div class="col">
+          {p.estado === 'activa' && (
+            <>
+              <DosisDeHoy p={p} />
+              <AccionesRapidas p={p} e={e} onNota={() => { nota.value = true }} />
+            </>
+          )}
+          <Tarjeta fondo="verde">
+            <h3><Icono nombre="bombilla" />Consejos de {nombreEtapa[e.etapa].toLowerCase()}</h3>
+            <ul class="lista-puntos">{consejosEtapa(e.etapa).map((c) => <li key={c}>{c}</li>)}</ul>
+          </Tarjeta>
+          {p.estado === 'activa' && p.semilla === 'regular' && <SexoPlanta p={p} />}
+          <PolenYSemillas p={p} e={e} />
+        </div>
+        <div class="col">
+          <FlujoCosecha p={p} />
+          <FotosPlanta p={p} />
+          <Historial p={p} onEditar={(r) => { registro.value = r }} />
+          <ZonaPeligrosa p={p} />
+        </div>
+      </div>
 
       {editando.value && <FormPlanta editando={p} onCerrar={() => { editando.value = false }} />}
       {nota.value && <NuevaNota plantaID={p.id} onCerrar={() => { nota.value = false }} />}

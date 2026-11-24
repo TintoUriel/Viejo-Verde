@@ -15,13 +15,14 @@ import {
 import { Planificador } from '../core/planificador'
 import { maxFecha } from '../core/util'
 import { Icono } from '../iconos'
+import { grosorPared, imagenDe, puntoEnSVG, useOscuro } from './plano'
 
-// ─── Colores del mapa (una sola tinta, ámbar: más oscuro = más sol en modo claro; al revés en oscuro) ───
+// ─── Colores del mapa: de salvia fría (sombra) a ámbar encendido (mucho sol), en los dos modos ───
 
 /** Escalones de 2 horas: 0–2, 2–4, 4–6, 6–8, 8–10 y 10 o más. */
-const RAMPA_CLARA = ['#dfad6d', '#d3953f', '#c17f11', '#a86e05', '#905c01', '#774c03']
-const RAMPA_OSCURA = ['#66481f', '#81581f', '#9d6a1c', '#b97c21', '#d89329', '#f8ac3d']
-const SOL_SOMBRA = { claro: { sol: '#f4c06f', sombra: '#6f6f75' }, oscuro: { sol: '#f8ac3d', sombra: '#3a3a3e' } }
+const RAMPA_CLARA = ['#d2dacd', '#e5e3bf', '#f1dc9c', '#f3c766', '#eca63e', '#dd8421']
+const RAMPA_OSCURA = ['#1e2822', '#343a26', '#544920', '#7b5d1d', '#a8741e', '#d88b20']
+const SOL_SOMBRA = { claro: { sol: '#f2c96e', sombra: '#c9d2c5' }, oscuro: { sol: '#a37a26', sombra: '#1c261e' } }
 const escalon = (h: number) => Math.min(5, Math.max(0, Math.floor(h / 2)))
 
 const colorNivel: Record<Nivel, string> = { ideal: 'var(--verde)', bien: 'var(--verde)', justo: 'var(--ambar)', poco: 'var(--alerta)' }
@@ -34,18 +35,6 @@ const metros = (m: number) => `${String(+m.toFixed(2)).replace('.', ',')} m`
 function leerNumero(t: string): number | undefined {
   const n = Number(t.trim().replace(',', '.'))
   return t.trim() !== '' && Number.isFinite(n) && n >= 0 ? n : undefined
-}
-
-function useOscuro(): boolean {
-  const mq = typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: dark)') : undefined
-  const [oscuro, setOscuro] = useState(mq?.matches ?? false)
-  useEffect(() => {
-    if (!mq) return
-    const f = () => setOscuro(mq.matches)
-    mq.addEventListener('change', f)
-    return () => mq.removeEventListener('change', f)
-  }, [])
-  return oscuro
 }
 
 /** Hasta cuándo mirar: la última cosecha estimada de las plantas del patio (o 4 meses). */
@@ -63,27 +52,6 @@ function diasDe(desde: Date, hasta: Date): Date[] {
 
 const minutosBA = (f: Date) => Calendario.hora(f) * 60 + Calendario.minuto(f)
 const horaTexto = (min: number) => `${Math.floor(min / 60)}:${String(Math.round(min % 60)).padStart(2, '0')}`
-
-function imagenDe(columnas: number, filas: number, color: (k: number) => string): string {
-  const c = document.createElement('canvas')
-  c.width = columnas
-  c.height = filas
-  const ctx = c.getContext('2d')
-  if (!ctx) return ''
-  const img = ctx.createImageData(columnas, filas)
-  const cache = new Map<string, number[]>()
-  for (let k = 0; k < columnas * filas; k++) {
-    const hex = color(k)
-    let rgb = cache.get(hex)
-    if (!rgb) {
-      rgb = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
-      cache.set(hex, rgb)
-    }
-    img.data.set([rgb[0], rgb[1], rgb[2], 255], k * 4)
-  }
-  ctx.putImageData(img, 0, 0)
-  return c.toDataURL()
-}
 
 // ─── Pantalla ───
 
@@ -181,10 +149,12 @@ function Plano({ patio }: { patio: Patio }) {
   const numero = new Map(plantas.map((p, i) => [p.id, i + 1]))
 
   return (
-    <main class="pantalla">
+    <main class="pantalla ancha">
       <Barra titulo="Patio" atras="plantas" textoAtras="Plantas" />
 
-      <Tarjeta>
+      <div class="columnas patio-cols">
+      <div class="col col-fija">
+      <Tarjeta class="tarjeta-plano">
         <Segmentos opciones={[['temporada', 'Temporada'], ['dia', 'Un día'], ['hora', 'A una hora']] as const} valor={modo}
           onCambio={(m) => { setModo(m); setSonda(undefined) }} />
         {modo === 'temporada' ? (
@@ -246,6 +216,9 @@ function Plano({ patio }: { patio: Patio }) {
           <p class="nota-chica">Ese día sale el sol a las {horaTexto(minutosBA(luz.sale))} y se pone a las {horaTexto(minutosBA(luz.sePone))}.</p>
         )}
       </Tarjeta>
+      </div>
+
+      <div class="col">
 
       {plantas.length > 0 ? (
         <Seccion titulo="Plantas en el patio" pie="Promedio de horas de sol por día desde hoy hasta la cosecha estimada de cada una. Ideal: 8 h o más.">
@@ -340,6 +313,8 @@ function Plano({ patio }: { patio: Patio }) {
       <p class="nota-chica" style={{ margin: '0 16px' }}>
         Cuenta solo el sol directo, sin nubes. Es una estimación: si algo no coincide con lo que ves en el patio, ajustá las alturas.
       </p>
+      </div>
+      </div>
 
       {editando === 'medidas' && <HojaMedidas patio={patio} onCerrar={() => setEditando(undefined)} />}
       {editando === 'orientacion' && <HojaOrientacion patio={patio} onCerrar={() => setEditando(undefined)} />}
@@ -438,10 +413,9 @@ function DibujoPatio(p: {
   const Y = (y: number) => oy + y * escala
 
   const aPlano = (e: { clientX: number; clientY: number }): Punto => {
-    const r = ref.current!.getBoundingClientRect()
-    const k = ANCHO_VISTA / r.width
-    const lim = (v: number, max: number) => Math.min(Math.max(v, 0), max)
-    return { x: lim(((e.clientX - r.left) * k - ox) / escala, patio.ancho), y: lim(((e.clientY - r.top) * k - oy) / escala, patio.largo) }
+    const v = puntoEnSVG(ref.current!, e)
+    const lim = (n: number, max: number) => Math.min(Math.max(n, 0), max)
+    return { x: lim((v.x - ox) / escala, patio.ancho), y: lim((v.y - oy) / escala, patio.largo) }
   }
 
   const etiqueta = (l: Lado) => {
@@ -461,16 +435,32 @@ function DibujoPatio(p: {
         <pattern id="rayado" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
           <line x1="0" y1="0" x2="0" y2="6" stroke="var(--texto-3)" stroke-width="2" />
         </pattern>
+        <clipPath id="piso-patio"><rect x={ox} y={oy} width={w} height={h} rx="4" /></clipPath>
+        <pattern id="baldosas-patio" width={0.5 * escala} height={0.5 * escala} patternUnits="userSpaceOnUse" x={ox} y={oy}>
+          <path d={`M ${0.5 * escala} 0 V ${0.5 * escala} H 0`} class="junta" />
+        </pattern>
+        <radialGradient id="vineta-patio" cx="50%" cy="50%" r="75%">
+          <stop offset="55%" stop-color="var(--muro)" stop-opacity="0" />
+          <stop offset="100%" stop-color="var(--muro)" stop-opacity="0.2" />
+        </radialGradient>
+        <radialGradient id="sombra-marca">
+          <stop offset="35%" stop-color="#0b2414" stop-opacity="0.34" />
+          <stop offset="100%" stop-color="#0b2414" stop-opacity="0" />
+        </radialGradient>
       </defs>
 
       {/* Fondo que recibe los toques. */}
-      <rect x={ox} y={oy} width={w} height={h} fill="var(--relleno)" onClick={(e) => p.onTocar(aPlano(e))} />
-      {p.imagen && <image href={p.imagen} x={ox} y={oy} width={w} height={h} preserveAspectRatio="none" pointer-events="none" />}
+      <g clip-path="url(#piso-patio)">
+        <rect x={ox} y={oy} width={w} height={h} class="suelo" onClick={(e) => p.onTocar(aPlano(e))} />
+        {p.imagen && <image href={p.imagen} x={ox} y={oy} width={w} height={h} preserveAspectRatio="none" pointer-events="none" class="mapa-sol" />}
+        <rect x={ox} y={oy} width={w} height={h} fill="url(#baldosas-patio)" pointer-events="none" />
+        <rect x={ox} y={oy} width={w} height={h} fill="url(#vineta-patio)" pointer-events="none" />
+      </g>
 
       {patio.obstaculos.map((o) => (
         <g key={o.id} pointer-events="none">
-          <rect x={X(o.x)} y={Y(o.y)} width={o.ancho * escala} height={o.largo * escala} class="obstaculo" />
-          <rect x={X(o.x)} y={Y(o.y)} width={o.ancho * escala} height={o.largo * escala} fill="url(#rayado)" />
+          <rect x={X(o.x)} y={Y(o.y)} width={o.ancho * escala} height={o.largo * escala} rx="2" class="obstaculo" />
+          <rect x={X(o.x)} y={Y(o.y)} width={o.ancho * escala} height={o.largo * escala} rx="2" fill="url(#rayado)" />
           {o.ancho * escala > 40 && o.largo * escala > 16 && (
             <text x={X(o.x + o.ancho / 2)} y={Y(o.y + o.largo / 2) + 4} text-anchor="middle" class="texto-obstaculo">{o.nombre}</text>
           )}
@@ -480,7 +470,8 @@ function DibujoPatio(p: {
       {/* Paredes. */}
       {([['arriba', ox, oy, ox + w, oy], ['derecha', ox + w, oy, ox + w, oy + h], ['abajo', ox, oy + h, ox + w, oy + h],
         ['izquierda', ox, oy, ox, oy + h]] as const).map(([l, x1, y1, x2, y2]) => (
-        <line key={l} x1={x1} y1={y1} x2={x2} y2={y2} class={patio.paredes[l].alto === 0 ? 'pared abierta' : 'pared'} />
+        <line key={l} x1={x1} y1={y1} x2={x2} y2={y2} stroke-width={grosorPared(patio.paredes[l].alto)}
+          class={patio.paredes[l].alto === 0 ? 'pared abierta' : 'pared'} />
       ))}
       <text x={ox + w / 2} y={oy - 9} text-anchor="middle">{etiqueta('arriba')}</text>
       <text x={ox + w / 2} y={oy + h + 19} text-anchor="middle">{etiqueta('abajo')}</text>
@@ -541,6 +532,7 @@ function DibujoPatio(p: {
             }}
             onPointerCancel={() => { arrastre.current = null; setMoviendo(undefined) }}>
             <circle cx={X(punto.x)} cy={Y(punto.y)} r={Math.max(radio, 18)} fill="transparent" />
+            <circle cx={X(punto.x) + 1.5} cy={Y(punto.y) + 3} r={radio + 6} fill="url(#sombra-marca)" pointer-events="none" />
             <circle cx={X(punto.x)} cy={Y(punto.y)} r={radio} class="cuerpo" />
             <text x={X(punto.x)} y={Y(punto.y) + 4} text-anchor="middle">{m.numero}</text>
           </g>

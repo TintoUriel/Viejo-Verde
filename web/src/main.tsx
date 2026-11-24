@@ -2,10 +2,12 @@ import { signal } from '@preact/signals'
 import { render } from 'preact'
 import { useLayoutEffect } from 'preact/hooks'
 import { registerSW } from 'virtual:pwa-register'
-import { alVolver, cargado, cargar, modoEjemplo, salirModoEjemplo, tareas, ultimoError } from './app/almacen'
+import { alVolver, cargado, cargar, hoy, modoEjemplo, salirModoEjemplo, tareas, ultimoError } from './app/almacen'
 import { cargarAcceso, desbloqueada } from './app/acceso'
+import { estadoSync } from './app/sincronizador'
 import { irAPestania, pestania, PESTANIAS, ruta, scrollGuardado, type Pestania } from './app/router'
 import { Superpuestos } from './componentes'
+import { Formato } from './core/formato'
 import { Icono, IconoPestania } from './iconos'
 import './estilos.css'
 import { VistaAjustes } from './vistas/Ajustes'
@@ -90,6 +92,10 @@ function App() {
       {ultimoError.value && <div class="banner error"><span>{ultimoError.value}</span></div>}
       <Pantalla r={r} />
       <nav class="tabbar" aria-label="Secciones">
+        <div class="marca-app" aria-hidden="true">
+          <img src="icon-192.png" alt="" width={38} height={38} />
+          <span>Viejo Verde</span>
+        </div>
         {PESTANIAS.map((p) => (
           <button key={p} class={pestania.value === p ? 'activa' : ''} aria-current={pestania.value === p ? 'page' : undefined}
             onClick={() => irAPestania(p)}>
@@ -98,9 +104,25 @@ function App() {
             {p === 'hoy' && n > 0 && <span class="insignia" aria-label={`${n} tareas`}>{n}</span>}
           </button>
         ))}
+        <PieLateral />
       </nav>
       <Superpuestos />
     </>
+  )
+}
+
+/** Abajo de la barra lateral (solo en pantallas grandes): el día y cómo está la planilla. */
+function PieLateral() {
+  const s = estadoSync.value
+  const estado = !s.activada ? undefined
+    : s.ultimoError || s.errorCopia ? { texto: 'Planilla con error', clase: 'error' }
+    : s.enviando || s.pendientes > 0 || s.copiaPendiente ? { texto: 'Subiendo a la planilla', clase: 'subiendo' }
+    : { texto: 'Planilla al día', clase: 'ok' }
+  return (
+    <div class="pie-lateral">
+      <span class="dia">{Formato.mayusculaInicial(Formato.fechaLarga(hoy.value))}</span>
+      {estado && <span class={`estado-planilla ${estado.clase}`}>{estado.texto}</span>}
+    </div>
   )
 }
 

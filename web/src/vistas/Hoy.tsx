@@ -18,20 +18,24 @@ import { PatioInicio } from './PatioInicio'
 export function VistaHoy() {
   const consejo = Temporada.consejo(hoy.value)
   return (
-    <main class="pantalla">
+    <main class="pantalla ancha hoy">
       <Tablero />
-      <PatioInicio />
-      <AvisoInstalar />
-      <TarjetaClima />
-      <Tarjeta fondo="ambar" class="consejo">
-        <span class="icono-consejo"><Icono nombre="calendario" tam={20} /></span>
-        <div class="cuerpo">
-          <h3>{consejo.titulo}</h3>
-          <p class="texto">{consejo.texto}</p>
+      <div class="columnas hoy-cols">
+        <div class="col col-fija"><PatioInicio /></div>
+        <div class="col">
+          <AvisoInstalar />
+          <TarjetaClima />
+          <Tarjeta fondo="ambar" class="consejo">
+            <span class="icono-consejo"><Icono nombre="calendario" tam={20} /></span>
+            <div class="cuerpo">
+              <h3>{consejo.titulo}</h3>
+              <p class="texto">{consejo.texto}</p>
+            </div>
+          </Tarjeta>
+          <ListaTareas />
+          <button class="boton-ancho" onClick={() => ir('planificar')}><Icono nombre="calendario" />Planificar la próxima tanda</button>
         </div>
-      </Tarjeta>
-      <ListaTareas />
-      <button class="boton-ancho" onClick={() => ir('planificar')}><Icono nombre="calendario" />Planificar la próxima tanda</button>
+      </div>
     </main>
   )
 }

@@ -28,7 +28,7 @@ export function VistaSemillas() {
   const polenes = [...datos.value.polenes].sort((a, b) => b.fecha.getTime() - a.fecha.getTime())
 
   return (
-    <main class="pantalla">
+    <main class="pantalla ancha multicolumna">
       <Encabezado titulo="Semillas" acciones={
         <button class="boton-icono" aria-label="Agregar pack" onClick={() => { nuevoPack.value = true }}><Icono nombre="masCirculo" tam={28} /></button>
       } />

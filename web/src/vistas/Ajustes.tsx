@@ -14,7 +14,7 @@ import { instalada } from './Instalar'
 export function VistaAjustes() {
   const s = estadoSync.value
   return (
-    <main class="pantalla">
+    <main class="pantalla ancha multicolumna">
       <Encabezado titulo="Ajustes" />
       <SeccionAsistente />
       <SeccionPlanilla />

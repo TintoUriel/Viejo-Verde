@@ -42,9 +42,9 @@ export function Tarjeta(p: { fondo?: 'verde' | 'ambar' | 'alerta'; class?: strin
   return <section class={['tarjeta', p.fondo, p.class].filter(Boolean).join(' ')} style={p.style}>{p.children}</section>
 }
 
-export function Seccion(p: { titulo?: string; pie?: ComponentChildren; children: ComponentChildren }) {
+export function Seccion(p: { titulo?: string; pie?: ComponentChildren; class?: string; children: ComponentChildren }) {
   return (
-    <div class="seccion">
+    <div class={p.class ? `seccion ${p.class}` : 'seccion'}>
       {p.titulo && <h2 class="titulo-seccion">{p.titulo}</h2>}
       <div class="grupo">{p.children}</div>
       {p.pie && <p class="pie">{p.pie}</p>}

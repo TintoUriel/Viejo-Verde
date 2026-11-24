@@ -16,7 +16,7 @@ export function VistaPlantas() {
   const historial = plantas.filter((p) => p.estado === 'terminada' || p.estado === 'descartada')
 
   return (
-    <main class="pantalla">
+    <main class="pantalla ancha">
       <Encabezado titulo="Plantas" acciones={
         <button class="boton-icono" aria-label="Agregar planta" onClick={() => { nueva.value = true }}><Icono nombre="masCirculo" tam={28} /></button>
       } />
@@ -50,7 +50,7 @@ export function VistaPlantas() {
 
 function Grupo({ titulo, plantas }: { titulo: string; plantas: Planta[] }) {
   return (
-    <Seccion titulo={titulo}>
+    <Seccion titulo={titulo} class="grilla-plantas">
       {plantas.map((p) => <FilaPlanta key={p.id} planta={p} />)}
     </Seccion>
   )
