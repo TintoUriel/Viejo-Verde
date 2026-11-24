@@ -41,6 +41,11 @@ El chat del asistente no se pasa (no está en el backup).
 - La API key, la URL y el token de la planilla quedan en el almacenamiento del navegador del teléfono
   (no en el llavero). Nunca van en los backups.
 - "Cargar datos de ejemplo" está siempre en Ajustes (antes solo en debug).
+- **Tu patio en Hoy**: arriba de todo está el plano con cada planta donde la ubicaste, con el anillo de su
+  etapa y un número rojo si tiene algo para hoy. Tocás una y se abre su ficha (ahí no se arrastra nada, para
+  no moverlas sin querer; se acomodan en **Plantas → Patio** o con **Editar**).
+- **Hoja Configuración** en la planilla: el patio, dónde está cada planta y las dosis de las etiquetas van ahí
+  (una fila por dato, se reescribe sola), separado de Registro, que queda solo para el historial.
 - **Plano del patio** (nuevo, en **Plantas → Patio**): cargás las medidas, la altura de cada pared (y si hay un
   edificio más atrás), hacia dónde da (a mano o con la brújula del teléfono) y lo que hace sombra adentro. La app
   calcula las horas de sol directo de cada lugar (por temporada, por día o a una hora), marca los mejores

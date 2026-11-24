@@ -1,21 +1,26 @@
 # Viejo Verde → Google Sheets
 
 La app manda cada cosa que registrás a tu planilla, por POST a un **Web App de Apps Script** vinculado a
-la planilla. El script escribe en dos hojas nuevas y no toca **Compras** ni **Ahorro**:
+la planilla. El script escribe en estas hojas y no toca **Compras** ni **Ahorro**:
 
 - **Registro**: una fila por evento (riego, fertilizante, cambio de etapa, cosecha…). Solo se agregan filas:
   nunca se editan ni se borran. Si corregís o borrás algo en la app, llega una fila "corrección" o
   "borrado" que dice qué ID corrige.
 - **Plantas**: una fila por planta con su estado actual (se actualiza sola).
+- **Configuración**: lo que no es historial: medidas y orientación del patio, el alto de cada pared, lo que
+  da sombra, **dónde está cada planta en el plano** y las dosis de las etiquetas de los fertilizantes. Una
+  fila por dato (Sección, Dato, Valor, Clave). Se reescribe entera cada vez que cambiás algo de eso, así que
+  mover una maceta no ensucia Registro. Si se pierde la copia de "Estado", la app rearma el patio con esta hoja.
 - **Estado** (oculta): una copia completa de los datos de la app. La app la sube unos segundos después de
   cada cambio y la **baja al abrirse** si es más nueva que la del teléfono. Así la planilla sube y baja.
   No la edites a mano.
 
-> **¿Ya tenías el script instalado?** Para que la app pueda bajar los datos hay que actualizarlo:
+> **¿Ya tenías el script instalado?** Para que la app pueda bajar los datos y llenar la hoja Configuración hay que actualizarlo:
 > abrí **Extensiones → Apps Script**, reemplazá todo el código por el de [`Code.gs`](Code.gs), guardá, y
 > **Implementar → Gestionar implementaciones → ✏️ → Versión: Nueva versión → Implementar** (la URL y el
 > token no cambian). Después, en la app: **Ajustes → Planilla → Probar conexión** tiene que decir
-> "el script ya sube y baja la copia completa", y **Bajar de la planilla ahora** trae tus datos.
+> "el script ya sube y baja la copia completa y escribe la hoja Configuración". La hoja aparece sola la
+> próxima vez que abras la app (o tocá **Sincronizar todo**).
 
 Planilla: <https://docs.google.com/spreadsheets/d/1kLFYUvD6-PsNVRxZ8u3o3uBfBvmuP5z2Il2V0iJkwhI/edit>
 
@@ -34,7 +39,7 @@ Planilla: <https://docs.google.com/spreadsheets/d/1kLFYUvD6-PsNVRxZ8u3o3uBfBvmuP
 2. La primera vez pide permisos: **Revisar permisos** → elegí tu cuenta → "Google no verificó esta app" →
    **Configuración avanzada** → **Ir a Viejo Verde (no seguro)** → **Permitir**. Es tu propio script,
    y solo pide acceso a esta planilla.
-3. Volvé a la planilla: al final aparecen las pestañas **Registro** y **Plantas** con sus encabezados.
+3. Volvé a la planilla: al final aparecen las pestañas **Registro**, **Plantas** y **Configuración** con sus encabezados.
    Compras y Ahorro siguen igual.
 
 ### 3. Crear el token: `generarToken()`
@@ -121,8 +126,8 @@ Google Drive en claude.ai y pedile que lea la planilla.
 
 - Sí: tipo de evento, fecha, planta, variedad, etapa y día de cultivo, cantidades (ml, g, mm, semillas),
   producto, dosis, tus notas y la versión de la app.
-- No: fotos (solo "saqué una foto"), la API key de Anthropic, el chat con el asistente, ajustes, ni nada
-  del modo ejemplo.
+- A Configuración (no a Registro): el plano del patio, dónde está cada planta y las dosis de las etiquetas.
+- No: fotos (solo "saqué una foto"), la API key de Anthropic, el chat con el asistente, ni nada del modo ejemplo.
 - Importar un backup o "Borrar todos los datos" no anota nada en Registro (para no llenarlo de borrados),
   pero sí reemplaza la copia completa. Después de importar, tocá **Sincronizar todo**.
 - Si usás la app en dos lugares (por ejemplo el iPhone y la PC), gana el último cambio: no se mezclan.
@@ -146,6 +151,10 @@ Google Drive en claude.ai y pedile que lea la planilla.
   }]
 }
 ```
+
+Con `"configuracion": [{"seccion", "dato", "valor", "clave"}]` el script reescribe la hoja Configuración y
+responde `"configuracion": <filas>` (la clave es el camino del dato en la app: `patio.ancho`,
+`patio.ubicaciones.<planta>.x`, `config.topVegEtiquetaMlPorLitro`…; ver `web/src/core/sync/configuracion.ts`).
 
 Con `"accion": "probar"` solo valida el token. La copia completa usa `"accion": "guardarEstado"` y
 `"accion": "leerEstado"` (ver el comentario al principio de `Code.gs`). Los nombres salen de

@@ -1262,6 +1262,66 @@ details.guia ol li::marker { color: var(--verde); font-weight: 700; }
 .plano .marca-planta.resaltada .cuerpo { stroke: var(--tarjeta); stroke-width: 3; }
 .plano .marca-planta text { fill: var(--lima); font-weight: 750; pointer-events: none; }
 
+/* El patio en Hoy: las plantas donde las dejaste, con el anillo de su etapa (como en la lista de Plantas). */
+.patio-inicio { gap: 10px; }
+.cabeza-patio { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cabeza-patio h3 { margin: 0; }
+.plano-inicio { max-width: 380px; margin: 0 auto; }
+.plano-inicio .suelo { fill: var(--relleno); }
+.plano-inicio .rumbo { fill: var(--texto-3); font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; }
+.plano-inicio .marca-inicio { cursor: pointer; outline: none; -webkit-tap-highlight-color: transparent; }
+.plano-inicio .marca-inicio .pista { fill: none; stroke: color-mix(in srgb, var(--ce) 22%, transparent); stroke-width: 4; }
+.plano-inicio .marca-inicio .avance { fill: none; stroke: var(--ce); stroke-width: 4; stroke-linecap: round; }
+.plano-inicio .marca-inicio .centro { fill: var(--tarjeta); transition: fill 0.15s; }
+.plano-inicio .marca-inicio:active .centro,
+.plano-inicio .marca-inicio:focus-visible .centro { fill: color-mix(in srgb, var(--ce) 18%, var(--tarjeta)); }
+.plano-inicio .marca-inicio:focus-visible .pista { stroke: var(--texto); }
+.plano-inicio .marca-inicio text { pointer-events: none; }
+.plano-inicio .marca-inicio .sem {
+  fill: color-mix(in srgb, var(--ce) 70%, var(--texto));
+  font-family: var(--display);
+  font-size: 14px;
+  font-weight: 750;
+}
+.plano-inicio .marca-inicio .sem-chico { fill: color-mix(in srgb, var(--ce) 70%, var(--texto)); font-size: 6.5px; font-weight: 750; letter-spacing: 0.05em; }
+.plano-inicio .marca-inicio .nombre {
+  fill: var(--texto);
+  font-size: 11px;
+  font-weight: 650;
+  paint-order: stroke;
+  stroke: var(--tarjeta);
+  stroke-width: 3.5px;
+  stroke-linejoin: round;
+}
+.plano-inicio .insignia-plano circle { fill: #e5482f; stroke: var(--tarjeta); stroke-width: 2; }
+.plano-inicio .insignia-plano text { fill: #fff; font-size: 10px; font-weight: 750; }
+
+.patio-sin-plano, .patio-pendiente {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: none;
+  background: none;
+  padding: 0;
+  text-align: left;
+  font-size: 15px;
+}
+.patio-sin-plano .icono { color: var(--teal); display: flex; }
+.patio-sin-plano .chevron { color: var(--texto-3); font-size: 20px; }
+.patio-pendiente { background: var(--relleno); border-radius: 14px; padding: 9px 12px; font-size: 14px; color: var(--texto-2); }
+.patio-pendiente .ubicar { color: var(--verde); font-weight: 650; white-space: nowrap; }
+.patio-adentro { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.patio-adentro button {
+  border: none;
+  border-radius: 999px;
+  background: var(--relleno);
+  color: var(--verde);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 5px 11px;
+}
+
 .escala-sol { display: flex; flex-direction: column; gap: 3px; }
 .escala-sol .tiras { display: flex; gap: 2px; margin-right: calc(100% / 7); }
 .escala-sol .tiras span { flex: 1; height: 10px; }

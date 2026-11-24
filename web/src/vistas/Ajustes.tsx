@@ -82,7 +82,7 @@ function SeccionPlanilla() {
 
   return (
     <Seccion titulo="Planilla de Google"
-      pie={'Sube y baja: cada cosa que registrás se anota en las hojas Registro y Plantas, y la planilla guarda además una copia completa de tus datos. Al abrir la app, si la copia de la planilla es más nueva, se baja sola. Las fotos quedan en cada teléfono; nunca se mandan fotos, la API key ni el chat. "Sincronizar todo" manda el historial completo: repetirlo no duplica nada.'}>
+      pie={'Sube y baja: cada cosa que registrás se anota en las hojas Registro y Plantas; el patio, dónde va cada planta y las dosis de las etiquetas van a la hoja Configuración. La planilla guarda además una copia completa de tus datos. Al abrir la app, si la copia de la planilla es más nueva, se baja sola. Las fotos quedan en cada teléfono; nunca se mandan fotos, la API key ni el chat. "Sincronizar todo" manda el historial completo: repetirlo no duplica nada.'}>
       {s.configurada ? (
         <>
           <div class="fila">
@@ -105,6 +105,7 @@ function SeccionPlanilla() {
             <span class="valor">{s.copiaPendiente ? 'Cambios por subir' : 'Al día'}</span>
           </div>
           <div class="fila"><span style={{ flex: 1 }}>Última bajada</span><span class="valor">{s.ultimaBajada ? Formato.fechaHora(s.ultimaBajada) : 'Nunca'}</span></div>
+          {s.avisoConfiguracion && <div class="fila"><span class="peligro-texto con-icono" style={{ fontSize: '14px' }}><Icono nombre="alerta" tam={18} />{s.avisoConfiguracion}</span></div>}
           {s.errorCopia && <div class="fila"><span class="peligro-texto con-icono" style={{ fontSize: '14px' }}><Icono nombre="alerta" tam={18} />{s.errorCopia}</span></div>}
           {s.progreso && <div class="fila"><Girando /><span style={{ fontSize: '14px' }}>{s.progreso}</span></div>}
           <button class="fila accion" disabled={s.enviando || ocupado.value} onClick={() => conCarga(() => Sincronizador.probarConexion())}>

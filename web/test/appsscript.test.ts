@@ -2,7 +2,9 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { D, datosVacios, leerDatos } from '../src/core/datos'
+import { datosDeEjemplo } from '../src/core/ejemplo'
 import { nuevoPaquete } from '../src/core/modelos'
+import { Configuracion } from '../src/core/sync/configuracion'
 import { Eventos } from '../src/core/sync/eventos'
 import { CuerpoSync, LectorSync } from '../src/core/sync/modelos'
 import { limpiarFila, reconstruir, type FilaPlanta, type FilaRegistro } from '../src/core/sync/reconstruir'
@@ -49,6 +51,15 @@ class Hoja {
         return this
       },
       setFontWeight() { return this },
+      clearContent() {
+        for (let i = 0; i < filas; i++) for (let j = 0; j < cols; j++) {
+          const f = hoja.datos[fila - 1 + i]
+          if (f) f[col - 1 + j] = ''
+        }
+        // Como en Sheets: las filas vacías del final no cuentan para getLastRow.
+        while (hoja.datos.length > 0 && hoja.datos[hoja.datos.length - 1].every((c) => c === '' || c === undefined)) hoja.datos.pop()
+        return this
+      },
     }
   }
   setFrozenRows() {}
@@ -143,6 +154,44 @@ describe('Apps Script (Code.gs) con la planilla simulada', () => {
     // 5. Una copia más vieja no pisa a la nueva (otro dispositivo atrasado).
     expect(post(CuerpoSync.guardarEstado(TOKEN, '{"plantas":[]}', new Date('2026-11-20T14:00:00Z'))).guardado).toBe(false)
     expect(post(CuerpoSync.leerEstado(TOKEN)).estado).toBe(json)
+  })
+
+  it('escribe la hoja Configuración entera y la devuelve para rearmar el patio', () => {
+    const { post, hojas } = nuevoScript()
+    const d = datosDeEjemplo(hoyTest)
+    const filas = Configuracion.filas(d)
+    const filasPlantas = d.plantas.map((p) => Eventos.fila(p, hoyTest))
+
+    // Probar conexión avisa que el script ya la conoce.
+    expect(post(CuerpoSync.prueba(TOKEN)).configuracion).toBe(true)
+
+    const historial = Eventos.historial(d, hoyTest, 'web')
+    const r = post(CuerpoSync.json({ eventos: historial, plantas: filasPlantas, configuracion: filas }, TOKEN))
+    expect(r.configuracion).toBe(filas.length)
+    const hoja = hojas.get('Configuración')!
+    expect(hoja.datos[0]).toEqual(['Sección', 'Dato', 'Valor', 'Clave'])
+    expect(hoja.getLastRow()).toBe(filas.length + 1)
+    // Lo que no es historial no suma filas a Registro.
+    expect(hojas.get('Registro')!.getLastRow()).toBe(historial.length + 1)
+
+    // Sin "configuracion" en el pedido, la hoja no se toca (y la respuesta no la nombra).
+    expect(post(CuerpoSync.json({ eventos: [], plantas: [] }, TOKEN)).configuracion).toBeUndefined()
+    expect(hoja.getLastRow()).toBe(filas.length + 1)
+
+    // Sin copia completa todavía: con Registro, Plantas y Configuración se rearma todo, patio incluido.
+    const v = post(CuerpoSync.leerEstado(TOKEN))
+    const x = reconstruir(
+      (v.filasRegistro ?? []).map((f) => limpiarFila<FilaRegistro>(f)),
+      (v.filasPlantas ?? []).map((f) => limpiarFila<FilaPlanta>(f)),
+      v.filasConfiguracion ?? [],
+    )
+    expect(Object.keys(x.patio!.ubicaciones).length).toBe(4)
+    expect(iguales(x.patio, d.patio)).toBe(true)
+
+    // Se reescribe entera: si ahora hay menos filas, no quedan restos.
+    const menos = Configuracion.filas(datosVacios())
+    expect(post(CuerpoSync.json({ eventos: [], plantas: [], configuracion: menos }, TOKEN)).configuracion).toBe(2)
+    expect(hoja.getLastRow()).toBe(3)
   })
 
   it('rechaza un token equivocado', () => {

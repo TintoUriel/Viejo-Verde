@@ -2,6 +2,7 @@ import { signal } from '@preact/signals'
 import { Calendario } from '../core/calendario'
 import { leerDatos, type Datos } from '../core/datos'
 import { Bandeja } from '../core/sync/bandeja'
+import { Configuracion } from '../core/sync/configuracion'
 import { decidir } from '../core/sync/copia'
 import { Eventos } from '../core/sync/eventos'
 import { CuerpoSync, mensajeErrorSync } from '../core/sync/modelos'
@@ -16,6 +17,9 @@ import { ClienteSync, secretos, VERSION_APP } from './servicios'
  * Todo evento se guarda primero en la cola local y después se intenta mandar: al registrarlo, al volver
  * a la app y cuando vuelve la conexión. Si falla, queda en la cola y se reintenta con backoff exponencial.
  * Nunca bloquea la pantalla.
+ *
+ * Lo que no es historial (el patio, dónde va cada planta, las dosis de las etiquetas) va a la hoja
+ * "Configuración", que se reescribe entera cuando algo de eso cambia.
  *
  * Además mantiene una copia completa de los datos en la planilla (hoja oculta "Estado"): se sube unos
  * segundos después de cada cambio y se baja al abrir la app si la de la planilla es más nueva.
@@ -34,6 +38,8 @@ export interface EstadoSync {
   copiaPendiente: boolean
   ultimaBajada?: Date
   errorCopia?: string
+  /** El script de la planilla es viejo y no escribe la hoja "Configuración". */
+  avisoConfiguracion?: string
 }
 
 /** Fechas de la copia completa (se guardan en IndexedDB). */
@@ -52,6 +58,7 @@ let progreso: string | undefined
 let reintento: ReturnType<typeof setTimeout> | undefined
 let meta: MetaCopia = {}
 let errorCopia: string | undefined
+let avisoConfiguracion: string | undefined
 let subida: ReturnType<typeof setTimeout> | undefined
 let subiendo = false
 let ultimoIntentoBajada = 0
@@ -72,6 +79,7 @@ function refrescar(): void {
     copiaPendiente: meta.cambiado !== undefined && meta.cambiado !== meta.sincronizado,
     ultimaBajada: meta.bajada ? new Date(meta.bajada) : undefined,
     errorCopia,
+    avisoConfiguracion,
   }
 }
 
@@ -196,6 +204,7 @@ export const Sincronizador = {
           const d = reconstruir(
             (v.filasRegistro ?? []).map((f) => limpiarFila<FilaRegistro>(f)),
             (v.filasPlantas ?? []).map((f) => limpiarFila<FilaPlanta>(f)),
+            v.filasConfiguracion ?? [],
           )
           await guardarMeta()
           if (!tieneDatos(d)) return 'nada'
@@ -234,14 +243,17 @@ export const Sincronizador = {
     if (!activada) return
     bandeja.encolar(Eventos.detectar(antes, despues, hoy, VERSION_APP))
     bandeja.encolarPlantas(Eventos.filasCambiadas(antes, despues, hoy))
+    bandeja.encolarConfiguracion(Configuracion.filas(despues))
     encolarEtapas(despues, hoy)
     void guardarBandeja().then(() => Sincronizador.enviar())
   },
 
-  /** Cambios de etapa nuevos y, una vez por día, la fila de cada planta (el Día de cultivo avanza solo). */
+  /** Cambios de etapa nuevos, la hoja "Configuración" si no está al día y, una vez por día, la fila de
+   *  cada planta (el Día de cultivo avanza solo). */
   revisar(datos: Datos, hoy: Date): void {
     if (!activada) return
     encolarEtapas(datos, hoy)
+    bandeja.encolarConfiguracion(Configuracion.filas(datos))
     const dia = Calendario.claveDia(hoy)
     if (bandeja.ultimoRefrescoPlantas !== dia) {
       bandeja.encolarPlantas(datos.plantas.map((p) => Eventos.fila(p, hoy)))
@@ -278,7 +290,12 @@ export const Sincronizador = {
         const lote = bandeja.lote()
         const r = await ClienteSync.enviar(CuerpoSync.json(lote, c.token), c.url)
         if (r.ok) {
-          bandeja.confirmar(lote, new Date())
+          const configuracionGuardada = lote.configuracion === undefined || typeof r.valor.configuracion === 'number'
+          if (lote.configuracion) {
+            avisoConfiguracion = configuracionGuardada ? undefined
+              : 'Actualizá el script de la planilla (ver Ajustes) para que se llene la hoja Configuración con el patio.'
+          }
+          bandeja.confirmar(lote, new Date(), configuracionGuardada)
           resumen.agregados += r.valor.agregados ?? 0
           resumen.repetidos += r.valor.repetidos ?? 0
           if (progreso !== undefined) progreso = `Enviando… quedan ${bandeja.pendientes} eventos`
@@ -309,7 +326,10 @@ export const Sincronizador = {
     if (r.valor.estado !== true) {
       return 'La planilla responde y el token es correcto, pero el script es el viejo: actualizalo para que la app pueda bajar los datos (Ajustes → Planilla).'
     }
-    return 'Conexión OK: la planilla responde, el token es correcto y el script ya sube y baja la copia completa.'
+    if (r.valor.configuracion !== true) {
+      return 'La planilla responde y el token es correcto, pero falta actualizar el script para que escriba la hoja Configuración (el patio y dónde va cada planta).'
+    }
+    return 'Conexión OK: la planilla responde, el token es correcto y el script ya sube y baja la copia completa y escribe la hoja Configuración.'
   },
 
   /** Manda todo el historial y la fila de cada planta. Como los IDs son estables, repetirlo no duplica nada. */
@@ -321,6 +341,8 @@ export const Sincronizador = {
     for (const e of historial) if (e.tipo === 'cambio de etapa') bandeja.etapasEncoladas.add(e.id)
     bandeja.encolarPlantas(datos.plantas.map((p) => Eventos.fila(p, hoy)))
     bandeja.ultimoRefrescoPlantas = Calendario.claveDia(hoy)
+    bandeja.configuracionEnviada = undefined
+    bandeja.encolarConfiguracion(Configuracion.filas(datos))
     progreso = `Enviando… quedan ${bandeja.pendientes} eventos`
     await guardarBandeja()
     try {
@@ -328,7 +350,8 @@ export const Sincronizador = {
       while (enviando) await new Promise((r) => setTimeout(r, 300))
       const r = await Sincronizador.enviar(true)
       if (r.error) return `Se cortó: ${r.error} Lo que faltó queda en la cola y se reintenta solo.`
-      return `Listo: ${r.agregados} filas nuevas en Registro, ${r.repetidos} ya estaban.`
+      const extra = avisoConfiguracion ? ` ${avisoConfiguracion}` : ' La hoja Configuración quedó al día.'
+      return `Listo: ${r.agregados} filas nuevas en Registro, ${r.repetidos} ya estaban.${extra}`
     } finally {
       progreso = undefined
       refrescar()

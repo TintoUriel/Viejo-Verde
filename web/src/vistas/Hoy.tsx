@@ -13,12 +13,14 @@ import { tituloAccion, type AccionTarea, type Tarea } from '../core/tareas'
 import { redondear } from '../core/util'
 import { colorAviso, Icono, iconoAccion, iconoAviso, iconoTarea, type NombreIcono } from '../iconos'
 import { AvisoInstalar } from './Instalar'
+import { PatioInicio } from './PatioInicio'
 
 export function VistaHoy() {
   const consejo = Temporada.consejo(hoy.value)
   return (
     <main class="pantalla">
       <Tablero />
+      <PatioInicio />
       <AvisoInstalar />
       <TarjetaClima />
       <Tarjeta fondo="ambar" class="consejo">

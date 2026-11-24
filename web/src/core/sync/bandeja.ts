@@ -1,4 +1,5 @@
 import { iguales, leerFecha } from '../util'
+import type { FilaConfig } from './configuracion'
 import type { EventoSync, LoteSync, PlantaSync, TipoEvento } from './modelos'
 
 /**
@@ -9,6 +10,10 @@ export class Bandeja {
   eventos: EventoSync[] = []
   /** Última foto pendiente de cada planta (una por planta: la nueva reemplaza a la vieja). */
   plantas: PlantaSync[] = []
+  /** La hoja "Configuración" pendiente de mandar (la última reemplaza a la anterior). */
+  configuracion?: FilaConfig[]
+  /** JSON de la última "Configuración" que la planilla confirmó (para no mandar dos veces lo mismo). */
+  configuracionEnviada?: string
   /** IDs de cambios de etapa ya encolados alguna vez, para no generarlos de nuevo cada día. */
   etapasEncoladas = new Set<string>()
   /** Día ("2026-11-10") del último refresco de todas las plantas (el Día de cultivo cambia solo). */
@@ -23,7 +28,7 @@ export class Bandeja {
   static esperaMaxima = 15 * 60_000
 
   get vacia(): boolean {
-    return this.eventos.length === 0 && this.plantas.length === 0
+    return this.eventos.length === 0 && this.plantas.length === 0 && !this.configuracion
   }
 
   get pendientes(): number {
@@ -54,11 +59,24 @@ export class Bandeja {
     }
   }
 
+  /** Deja pendiente la configuración si no es la que ya tiene la planilla. Devuelve true si quedó pendiente. */
+  encolarConfiguracion(filas: FilaConfig[]): boolean {
+    const json = JSON.stringify(filas)
+    if (json === this.configuracionEnviada) {
+      this.configuracion = undefined
+      return false
+    }
+    this.configuracion = filas
+    return true
+  }
+
   // ─── Enviar ───
 
   /** Lo próximo a mandar: los eventos más viejos y todas las plantas pendientes. */
   lote(max = Bandeja.maxPorLote): LoteSync {
-    return { eventos: this.eventos.slice(0, max), plantas: [...this.plantas] }
+    const l: LoteSync = { eventos: this.eventos.slice(0, max), plantas: [...this.plantas] }
+    if (this.configuracion) l.configuracion = this.configuracion
+    return l
   }
 
   puedeEnviar(ahora: Date): boolean {
@@ -66,11 +84,18 @@ export class Bandeja {
   }
 
   /** La planilla confirmó el lote: sale de la cola solo lo que se mandó. Lo que se encoló mientras
-   *  tanto queda, y si una planta cambió durante el envío se queda su foto nueva. */
-  confirmar(lote: LoteSync, ahora: Date): void {
+   *  tanto queda, y si una planta cambió durante el envío se queda su foto nueva.
+   *  `configuracionGuardada` es false si el script es viejo y no escribió la hoja "Configuración": sale de
+   *  la cola igual (para no mandarla en cada lote), pero se vuelve a encolar la próxima vez que se revise. */
+  confirmar(lote: LoteSync, ahora: Date, configuracionGuardada = true): void {
     const enviados = new Set(lote.eventos.map((e) => e.id))
     this.eventos = this.eventos.filter((e) => !enviados.has(e.id))
     this.plantas = this.plantas.filter((p) => !lote.plantas.some((x) => iguales(x, p)))
+    if (lote.configuracion) {
+      const json = JSON.stringify(lote.configuracion)
+      if (configuracionGuardada) this.configuracionEnviada = json
+      if (this.configuracion && JSON.stringify(this.configuracion) === json) this.configuracion = undefined
+    }
     this.intentosFallidos = 0
     this.proximoIntento = undefined
     this.ultimoOK = ahora
@@ -97,6 +122,8 @@ export class Bandeja {
     return {
       eventos: this.eventos,
       plantas: this.plantas,
+      configuracion: this.configuracion,
+      configuracionEnviada: this.configuracionEnviada,
       etapasEncoladas: [...this.etapasEncoladas],
       ultimoRefrescoPlantas: this.ultimoRefrescoPlantas,
       intentosFallidos: this.intentosFallidos,
@@ -113,6 +140,8 @@ export class Bandeja {
     const x = o as Record<string, unknown>
     if (Array.isArray(x.eventos)) b.eventos = x.eventos.map(leerEvento)
     if (Array.isArray(x.plantas)) b.plantas = x.plantas.map(leerPlantaSync)
+    if (Array.isArray(x.configuracion)) b.configuracion = x.configuracion as FilaConfig[]
+    if (typeof x.configuracionEnviada === 'string') b.configuracionEnviada = x.configuracionEnviada
     if (Array.isArray(x.etapasEncoladas)) b.etapasEncoladas = new Set(x.etapasEncoladas.map(String))
     if (typeof x.ultimoRefrescoPlantas === 'string') b.ultimoRefrescoPlantas = x.ultimoRefrescoPlantas
     if (typeof x.intentosFallidos === 'number') b.intentosFallidos = x.intentosFallidos

@@ -1,9 +1,11 @@
 /**
  * Viejo Verde → Google Sheets.
  *
- * Web App que recibe lotes de eventos desde la app y los escribe en dos hojas:
+ * Web App que recibe lotes de eventos desde la app y los escribe en tres hojas:
  *   - "Registro": log de solo agregar (una fila por evento, nunca se edita ni se borra).
  *   - "Plantas":  estado actual, una fila por planta (upsert por Planta ID).
+ *   - "Configuración": lo que no es historial (el plano del patio, dónde va cada planta, las dosis de las
+ *                  etiquetas). Se reescribe entera cada vez que la app la manda.
  * Además guarda una copia completa de los datos de la app en la hoja oculta "Estado", para que la
  * app la baje al abrirse (sincronización en los dos sentidos). Las hojas "Compras" y "Ahorro" no se tocan.
  *
@@ -15,7 +17,8 @@
  *                    "etapa", "dia", "cantidad", "unidad", "producto", "dosis", "nota", "app" } ],
  *     "plantas": [ { "id", "nombre", "variedad", "autoFoto", "semilla", "sexo", "ubicacion",
  *                    "litros", "germinacion", "etapa", "dia", "ultimoRiego", "ultimoFertilizante",
- *                    "ultimoNeem", "estado", "gramosHumedos", "gramosSecos", "notas", "actualizado" } ]
+ *                    "ultimoNeem", "estado", "gramosHumedos", "gramosSecos", "notas", "actualizado" } ],
+ *     "configuracion": [ { "seccion", "dato", "valor", "clave" } ]   // opcional: la hoja entera
  *   }
  * Fechas: ISO 8601 (UTC). Se escriben en hora de Buenos Aires.
  *
@@ -24,9 +27,11 @@
  *     → {"ok": true, "guardado": true}  (o guardado: false si la planilla ya tenía una más nueva)
  *   {"token", "accion": "leerEstado"}
  *     → {"ok": true, "estado": "<JSON>" | null, "actualizado": "<ISO>" | null,
- *        "filasRegistro": [...], "filasPlantas": [...]}   (las filas, solo si todavía no hay copia)
+ *        "filasRegistro": [...], "filasPlantas": [...], "filasConfiguracion": [...]}
+ *        (las filas, solo si todavía no hay copia)
  *
- * Respuesta: {"ok": true, "agregados": n, "repetidos": n, "invalidos": n, "plantas": n}
+ * Respuesta: {"ok": true, "agregados": n, "repetidos": n, "invalidos": n, "plantas": n, "configuracion": n}
+ *         ("configuracion" solo si el pedido la traía)
  *         o  {"ok": false, "error": "…"}
  */
 
@@ -34,6 +39,7 @@ const ID_PLANILLA = '1kLFYUvD6-PsNVRxZ8u3o3uBfBvmuP5z2Il2V0iJkwhI';
 const HOJA_REGISTRO = 'Registro';
 const HOJA_PLANTAS = 'Plantas';
 const HOJA_ESTADO = 'Estado';
+const HOJA_CONFIG = 'Configuración';
 /** Una celda admite 50.000 caracteres: la copia se parte en pedazos más chicos. */
 const LARGO_PEDAZO = 40000;
 const ZONA = 'America/Argentina/Buenos_Aires';
@@ -54,6 +60,9 @@ const CLAVES_PLANTAS = [
   'ultimoRiego', 'ultimoFertilizante', 'ultimoNeem', 'estado', 'gramosHumedos', 'gramosSecos', 'notas', 'actualizado',
 ];
 
+const COLUMNAS_CONFIG = ['Sección', 'Dato', 'Valor', 'Clave'];
+const CLAVES_CONFIG = ['seccion', 'dato', 'valor', 'clave'];
+
 const COLUMNAS_PLANTAS = [
   'Planta ID', 'Nombre', 'Variedad', 'Auto/Foto', 'Feminizada/Regular', 'Sexo', 'Ubicación',
   'Maceta (L)', 'Fecha germinación', 'Etapa actual', 'Día', 'Último riego', 'Último fertilizante',
@@ -62,12 +71,13 @@ const COLUMNAS_PLANTAS = [
 
 // ───────────────────────────── Configuración ─────────────────────────────
 
-/** Crea las hojas "Registro" y "Plantas" si no existen. No toca ninguna otra hoja. */
+/** Crea las hojas "Registro", "Plantas" y "Configuración" si no existen. No toca ninguna otra hoja. */
 function setup() {
   const ss = planilla_();
   crearHoja_(ss, HOJA_REGISTRO, COLUMNAS_REGISTRO);
   crearHoja_(ss, HOJA_PLANTAS, COLUMNAS_PLANTAS);
-  Logger.log('Listo: hojas "%s" y "%s" preparadas.', HOJA_REGISTRO, HOJA_PLANTAS);
+  crearHoja_(ss, HOJA_CONFIG, COLUMNAS_CONFIG);
+  Logger.log('Listo: hojas "%s", "%s" y "%s" preparadas.', HOJA_REGISTRO, HOJA_PLANTAS, HOJA_CONFIG);
 }
 
 /**
@@ -108,7 +118,7 @@ function doPost(e) {
     const pedido = leerPedido_(e);
     validarToken_(pedido.token);
     if (pedido.accion === 'probar') {
-      return responder_({ ok: true, prueba: true, estado: true });
+      return responder_({ ok: true, prueba: true, estado: true, configuracion: true });
     }
     if (pedido.accion === 'leerEstado') {
       return responder_(leerEstado_(planilla_()));
@@ -126,8 +136,12 @@ function doPost(e) {
       const ss = planilla_();
       const r = agregarEventos_(crearHoja_(ss, HOJA_REGISTRO, COLUMNAS_REGISTRO), eventos);
       const n = actualizarPlantas_(crearHoja_(ss, HOJA_PLANTAS, COLUMNAS_PLANTAS), plantas);
+      const salida = { ok: true, agregados: r.agregados, repetidos: r.repetidos, invalidos: r.invalidos, plantas: n };
+      if (Array.isArray(pedido.configuracion)) {
+        salida.configuracion = escribirConfiguracion_(crearHoja_(ss, HOJA_CONFIG, COLUMNAS_CONFIG), pedido.configuracion);
+      }
       SpreadsheetApp.flush();
-      return { ok: true, agregados: r.agregados, repetidos: r.repetidos, invalidos: r.invalidos, plantas: n };
+      return salida;
     });
   } catch (err) {
     return responder_({ ok: false, error: String(err && err.message ? err.message : err) });
@@ -261,6 +275,22 @@ function actualizarPlantas_(hoja, plantas) {
   return n;
 }
 
+// ───────────────────────────── Configuración ─────────────────────────────
+
+/** Reemplaza todas las filas (menos el encabezado) por las que mandó la app. */
+function escribirConfiguracion_(hoja, filas) {
+  const valores = [];
+  filas.forEach(function (f) {
+    if (!f || typeof f.clave !== 'string' || f.clave === '') return;
+    const valor = typeof f.valor === 'number' && isFinite(f.valor) ? f.valor : texto_(f.valor);
+    valores.push([texto_(f.seccion), texto_(f.dato), valor, texto_(f.clave)]);
+  });
+  const ultima = hoja.getLastRow();
+  if (ultima > 1) hoja.getRange(2, 1, ultima - 1, COLUMNAS_CONFIG.length).clearContent();
+  if (valores.length > 0) hoja.getRange(2, 1, valores.length, COLUMNAS_CONFIG.length).setValues(valores);
+  return valores.length;
+}
+
 // ───────────────────────────── Copia completa (hoja "Estado") ─────────────────────────────
 // Fila 1: "actualizado" y la fecha ISO de la copia. Filas 2+: el JSON partido en pedazos, cada uno con
 // una "x" adelante para que Sheets nunca lo interprete como número, fecha o fórmula.
@@ -295,6 +325,7 @@ function leerEstado_(ss) {
     ok: true, estado: null, actualizado: null,
     filasRegistro: filas_(ss.getSheetByName(HOJA_REGISTRO), CLAVES_REGISTRO),
     filasPlantas: filas_(ss.getSheetByName(HOJA_PLANTAS), CLAVES_PLANTAS),
+    filasConfiguracion: filas_(ss.getSheetByName(HOJA_CONFIG), CLAVES_CONFIG),
   };
 }
 

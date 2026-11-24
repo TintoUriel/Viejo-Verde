@@ -1,4 +1,5 @@
 import { aJSON, exito, falla, type Resultado } from '../util'
+import type { FilaConfig } from './configuracion'
 
 // Lo que viaja a la planilla de Google (ver apps-script/Code.gs). Los nombres de las propiedades
 // son las claves del JSON que lee el Apps Script: si cambiás uno, cambialo también allá.
@@ -86,12 +87,15 @@ export interface PlantaSync {
 export interface LoteSync {
   eventos: EventoSync[]
   plantas: PlantaSync[]
+  /** La hoja "Configuración" entera (solo si cambió). */
+  configuracion?: FilaConfig[]
 }
 
 /** Cuerpo JSON del POST. */
 export const CuerpoSync = {
   json(lote: LoteSync, token: string): string {
-    return aJSON({ token, eventos: lote.eventos, plantas: lote.plantas })
+    return aJSON({ token, eventos: lote.eventos, plantas: lote.plantas,
+      ...(lote.configuracion ? { configuracion: lote.configuracion } : {}) })
   },
 
   /** "Probar conexión": el script solo valida el token y no escribe nada. */
@@ -118,6 +122,9 @@ export interface RespuestaSync {
   repetidos?: number
   invalidos?: number
   plantas?: number
+  /** Filas escritas en la hoja "Configuración" (o true en "Probar conexión", si el script ya la conoce).
+   *  Undefined = script viejo, que no la escribe. */
+  configuracion?: number | boolean
   /** Probar conexión: true si el script ya sabe guardar y devolver la copia completa. */
   prueba?: boolean
   /** leerEstado: la copia (JSON) o null si todavía no hay. Undefined = script viejo. */
@@ -125,6 +132,7 @@ export interface RespuestaSync {
   actualizado?: string | null
   filasRegistro?: Record<string, unknown>[]
   filasPlantas?: Record<string, unknown>[]
+  filasConfiguracion?: Record<string, unknown>[]
   /** guardarEstado: false si la planilla ya tenía una copia más nueva. */
   guardado?: boolean
 }

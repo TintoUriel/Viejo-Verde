@@ -5,10 +5,11 @@ import {
   type EstadoPlanta, type OpcionesRegistro, type PaqueteSemillas, type Planta, type Polen, type TipoRegistro,
 } from '../modelos'
 import { leerFecha } from '../util'
+import { Configuracion } from './configuracion'
 import { TE } from './modelos'
 
 /**
- * Reconstruye los datos a partir de las hojas "Registro" y "Plantas" de la planilla. Se usa una sola
+ * Reconstruye los datos a partir de las hojas "Registro", "Plantas" y "Configuración" de la planilla. Se usa una sola
  * vez: cuando la planilla todavía no tiene la copia completa (hoja "Estado"), por ejemplo con lo que
  * mandó la app de iPhone. Los registros conservan el ID de su fila, así "Sincronizar todo" no duplica.
  *
@@ -70,7 +71,8 @@ function fecha(s: string | undefined): Date | undefined {
   }
 }
 
-export function reconstruir(filasRegistro: FilaRegistro[], filasPlantas: FilaPlanta[]): Datos {
+export function reconstruir(filasRegistro: FilaRegistro[], filasPlantas: FilaPlanta[],
+  filasConfiguracion: { clave?: unknown; valor?: unknown }[] = []): Datos {
   const d = datosVacios()
   const eventos = filasRegistro
     .map((e, orden) => ({ e, orden, f: fecha(e.fecha) }))
@@ -306,6 +308,8 @@ export function reconstruir(filasRegistro: FilaRegistro[], filasPlantas: FilaPla
   d.plantas = [...plantas.values()]
   d.paquetes = [...paquetes.values()]
   d.polenes = [...polenes.values()]
+  // El patio y las dosis (después de las plantas, para saber de cuáles son los lugares).
+  Configuracion.aplicar(d, filasConfiguracion)
   return d
 }
 
