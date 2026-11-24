@@ -1,6 +1,7 @@
 import { useSignal } from '@preact/signals'
-import { borrarPlanta, cambiar, datos, dosisDe, ejecutar, estadoDe, hoy, pedidoActual } from '../app/almacen'
+import { borrarPlanta, cambiar, climaVigente, datos, dosisDe, ejecutar, estadoDe, hoy, pedidoActual } from '../app/almacen'
 import { elegirFoto, Fotos } from '../app/fotos'
+import { copiar } from '../app/portapapeles'
 import { ir, reemplazar } from '../app/router'
 import { avisar, confirmar } from '../app/ui'
 import { Barra, BarraEtapas, BotonGrande, fotoAbierta, Miniatura, Pastilla, Segmentos, Tarjeta, Vacio } from '../componentes'
@@ -9,6 +10,7 @@ import { consejosEtapa } from '../core/consejos'
 import { D, planta as buscar } from '../core/datos'
 import { textoAgua, type Dosis } from '../core/dosis'
 import { lineaDeTiempo } from '../core/estadisticas'
+import { Historia } from '../core/historia'
 import { nombreEtapa, semana, type Etapa, type EstadoEtapa } from '../core/etapas'
 import { Formato } from '../core/formato'
 import {
@@ -19,13 +21,14 @@ import { Planificador } from '../core/planificador'
 import { Tareas, type AccionTarea } from '../core/tareas'
 import { colorRegistro, Icono, iconoRegistro } from '../iconos'
 import { FormPlanta } from './FormPlanta'
-import { EditarRegistro, NuevaNota } from './Registros'
+import { EditarRegistro, NuevaNota, PHDrenaje, riegosRecientes } from './Registros'
 
 const estiloEtapa = (e: Etapa) => ({ '--ce': `var(--e-${e})` })
 
 export function DetallePlanta({ id }: { id: string }) {
   const editando = useSignal(false)
   const nota = useSignal(false)
+  const ph = useSignal(false)
   const registro = useSignal<Registro | undefined>(undefined)
   const p = buscar(datos.value, id)
 
@@ -49,7 +52,7 @@ export function DetallePlanta({ id }: { id: string }) {
           {p.estado === 'activa' && (
             <>
               <DosisDeHoy p={p} />
-              <AccionesRapidas p={p} e={e} onNota={() => { nota.value = true }} />
+              <AccionesRapidas p={p} e={e} onNota={() => { nota.value = true }} onPH={() => { ph.value = true }} />
             </>
           )}
           <Tarjeta fondo="verde">
@@ -69,6 +72,7 @@ export function DetallePlanta({ id }: { id: string }) {
 
       {editando.value && <FormPlanta editando={p} onCerrar={() => { editando.value = false }} />}
       {nota.value && <NuevaNota plantaID={p.id} onCerrar={() => { nota.value = false }} />}
+      {ph.value && <PHDrenaje planta={p} onCerrar={() => { ph.value = false }} />}
       {registro.value && <EditarRegistro plantaID={p.id} registro={registro.value} onCerrar={() => { registro.value = undefined }} />}
     </main>
   )
@@ -110,8 +114,17 @@ function Cabecera({ p, e }: { p: Planta; e: EstadoEtapa }) {
       )}
       {p.estado === 'secando' && <p style={{ fontWeight: 620 }}>Secando hace {e.diaEnEtapa} días</p>}
       {p.estado === 'curando' && <p style={{ fontWeight: 620 }}>En frascos hace {e.diaEnEtapa} días</p>}
+      <button class="copiar-historia" onClick={() => void copiarHistoria(p)}>
+        <Icono nombre="copiar" tam={18} />
+        <span><b>Copiar su historia para una IA</b><small>Todo lo que le pasó, listo para pegar y pedir un diagnóstico</small></span>
+      </button>
     </Tarjeta>
   )
+}
+
+async function copiarHistoria(p: Planta) {
+  const texto = Historia.texto(p, datos.value, new Date(), climaVigente.value)
+  avisar(await copiar(texto) ? 'Copiada: pegala en el chat de la IA' : 'No pude copiar: probá de nuevo', 2600)
 }
 
 // ─── Dosis de hoy ───
@@ -139,8 +152,9 @@ function DosisDeHoy({ p }: { p: Planta }) {
 
 // ─── Acciones rápidas ───
 
-function AccionesRapidas({ p, e, onNota }: { p: Planta; e: EstadoEtapa; onNota: () => void }) {
+function AccionesRapidas({ p, e, onNota, onPH }: { p: Planta; e: EstadoEtapa; onNota: () => void; onPH: () => void }) {
   const d = dosisDe(p)
+  const hayRiegos = riegosRecientes(p).length > 0
   const neemPermitido = e.etapa === 'plantula' || e.etapa === 'crecimiento' || e.etapa === 'prefloracion'
   return (
     <div class="seccion" style={{ gap: '8px' }}>
@@ -152,6 +166,7 @@ function AccionesRapidas({ p, e, onNota }: { p: Planta; e: EstadoEtapa; onNota: 
         <BotonGrande titulo="Neem" icono="destellos" color="teal" disabled={!neemPermitido} onClick={() => accion('neem', p.id)} />
         <BotonGrande titulo="Nota o problema" icono="nota" color="ambar" relleno={false} onClick={onNota} />
         <BotonGrande titulo="Foto" icono="camara" color="ambar" relleno={false} onClick={() => void agregarFoto(p.id)} />
+        <BotonGrande titulo="pH del drenaje" icono="tiraPH" color="azul" relleno={false} disabled={!hayRiegos} onClick={onPH} />
       </div>
       {!neemPermitido
         ? <p class="nota">Nada de neem desde la floración: no se rocían los cogollos.</p>
@@ -354,6 +369,7 @@ function detalleRegistro(r: Registro): string | undefined {
   const partes: string[] = []
   if (r.producto) partes.push(r.producto)
   if (r.aguaML !== undefined) partes.push(Formato.volumen(r.aguaML) + ' de agua')
+  if (r.phDrenaje !== undefined) partes.push(`pH del drenaje ${Formato.numero(r.phDrenaje)}`)
   if (r.nota) partes.push(r.nota)
   return partes.length === 0 ? undefined : partes.join(' · ')
 }

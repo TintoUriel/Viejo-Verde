@@ -27,6 +27,7 @@ export const TE = {
   finCurado: 'fin de curado',
   descarte: 'descarte',
   tareaSalteada: 'tarea salteada',
+  phDrenaje: 'pH del drenaje',
   altaSemillas: 'alta de semillas',
   bajaSemillas: 'baja de semillas',
   correccion: 'corrección',

@@ -116,9 +116,16 @@ export function reconstruir(filasRegistro: FilaRegistro[], filasPlantas: FilaPla
     return p
   }
 
+  // El pH va sobre su riego: se aplica al final, cuando ya están todos los registros.
+  const phs: FilaRegistro[] = []
+
   for (const { e, f } of eventos) {
     const nota = e.nota
     switch (e.tipo) {
+      case TE.phDrenaje:
+        phs.push(e)
+        break
+
       // ─── Semillas ───
       case TE.altaSemillas:
       case TE.bajaSemillas: {
@@ -288,6 +295,12 @@ export function reconstruir(filasRegistro: FilaRegistro[], filasPlantas: FilaPla
         }
       }
     }
+  }
+
+  for (const e of phs) {
+    const id = e.id.replace(/^ph-/, '')
+    const r = e.plantaID ? plantas.get(e.plantaID)?.registros.find((x) => x.id === id) : undefined
+    if (r && e.cantidad !== undefined) r.phDrenaje = e.cantidad
   }
 
   // Los gramos finales salen de la hoja "Plantas" (ya tienen aplicadas las correcciones).

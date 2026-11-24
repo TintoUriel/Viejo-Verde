@@ -102,6 +102,10 @@ function resumen(p: Planta, hoy: Date): string {
       if (ultimoFert?.producto !== undefined) fert +=` (${ultimoFert.producto})`
       partes.push(fert)
       partes.push(`neem: ${hace(ultimaFecha(p, ['neem']), hoy)}`)
+      const conPH = p.registros.filter((r) => r.phDrenaje !== undefined).sort((a, b) => b.fecha.getTime() - a.fecha.getTime())
+      if (conPH.length > 0) {
+        partes.push('pH del drenaje: ' + conPH.slice(0, 3).map((r) => `${Formato.numero(r.phDrenaje!)} (${hace(r.fecha, hoy)})`).join(', '))
+      }
       if (p.sexo !== 'macho') partes.push(`cosecha estimada desde el ${Formato.fechaCorta(Planificador.cosechaEstimadaDe(p))}`)
       if (p.fechaPolinizacion) partes.push(`polinizada ${hace(p.fechaPolinizacion, hoy)}`)
       break

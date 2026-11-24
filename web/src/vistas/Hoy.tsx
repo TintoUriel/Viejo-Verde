@@ -14,6 +14,7 @@ import { redondear } from '../core/util'
 import { colorAviso, Icono, iconoAccion, iconoAviso, iconoTarea, type NombreIcono } from '../iconos'
 import { AvisoInstalar } from './Instalar'
 import { PatioInicio } from './PatioInicio'
+import { ProximosDias } from './ProximosDias'
 
 export function VistaHoy() {
   const consejo = Temporada.consejo(hoy.value)
@@ -33,6 +34,7 @@ export function VistaHoy() {
             </div>
           </Tarjeta>
           <ListaTareas />
+          <ProximosDias />
           <button class="boton-ancho" onClick={() => ir('planificar')}><Icono nombre="calendario" />Planificar la próxima tanda</button>
         </div>
       </div>

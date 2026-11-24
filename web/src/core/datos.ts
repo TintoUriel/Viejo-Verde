@@ -329,6 +329,7 @@ export function leerRegistro(v: unknown): Registro {
       ? (sub as Registro['subtipo']) : undefined,
     fertilizanteML: numeroOpcional(o, 'fertilizanteML'),
     mlPorLitro: numeroOpcional(o, 'mlPorLitro'),
+    phDrenaje: numeroOpcional(o, 'phDrenaje'),
   })
 }
 

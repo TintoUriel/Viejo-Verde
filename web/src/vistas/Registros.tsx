@@ -5,7 +5,8 @@ import { avisar, confirmar } from '../app/ui'
 import { Hoja, Segmentos, Seccion } from '../componentes'
 import { Calendario } from '../core/calendario'
 import { D } from '../core/datos'
-import { nombreTipoRegistro, TIPOS_REGISTRO, type Registro, type TipoRegistro } from '../core/modelos'
+import { Formato } from '../core/formato'
+import { historial, nombreTipoRegistro, TIPOS_REGISTRO, type Planta, type Registro, type TipoRegistro } from '../core/modelos'
 import { Icono } from '../iconos'
 
 /** Editar o borrar un registro del historial. */
@@ -16,6 +17,8 @@ export function EditarRegistro(p: { plantaID: string; registro: Registro; onCerr
   const [producto, setProducto] = useState(r.producto ?? '')
   const [nota, setNota] = useState(r.nota ?? '')
   const [agua, setAgua] = useState(r.aguaML === undefined ? '' : String(r.aguaML))
+  const [ph, setPH] = useState(r.phDrenaje === undefined ? '' : Formato.numero(r.phDrenaje))
+  const esRiego = tipo === 'riego' || tipo === 'fertilizante'
 
   const guardar = () => {
     const editado: Registro = { ...r, tipo, fecha }
@@ -28,6 +31,9 @@ export function EditarRegistro(p: { plantaID: string; registro: Registro; onCerr
     else editado.nota = n
     if (Number.isFinite(a) && /^\d+$/.test(agua.trim())) editado.aguaML = a
     else delete editado.aguaML
+    const v = leerPH(ph)
+    if (esRiego && v !== undefined) editado.phDrenaje = v
+    else delete editado.phDrenaje
     cambiar((d) => D.editarRegistro(d, editado, p.plantaID))
     p.onCerrar()
   }
@@ -68,6 +74,13 @@ export function EditarRegistro(p: { plantaID: string; registro: Registro; onCerr
           <input type="text" inputMode="numeric" placeholder="—" value={agua} style={{ textAlign: 'right' }}
             onInput={(e) => setAgua((e.target as HTMLInputElement).value)} />
         </label>
+        {esRiego && (
+          <label class="fila">
+            <span>pH del drenaje</span>
+            <input type="text" inputMode="decimal" placeholder="—" value={ph} style={{ textAlign: 'right' }}
+              onInput={(e) => setPH((e.target as HTMLInputElement).value)} />
+          </label>
+        )}
         <div class="fila">
           <textarea placeholder="Nota" aria-label="Nota" rows={3} value={nota}
             onInput={(e) => setNota((e.target as HTMLTextAreaElement).value)} />
@@ -142,5 +155,91 @@ export function NuevaNota(p: { plantaID: string; onCerrar: () => void }) {
         )}
       </Seccion>
     </Hoja>
+  )
+}
+
+// ─── pH del drenaje ───
+
+/** "6,4" → 6.4. Solo valores posibles de pH (0 a 14). */
+function leerPH(t: string): number | undefined {
+  const s = t.trim().replace(',', '.')
+  const n = Number(s)
+  return s !== '' && Number.isFinite(n) && n >= 0 && n <= 14 ? Math.round(n * 100) / 100 : undefined
+}
+
+/** Los últimos riegos (con o sin fertilizante), del más nuevo al más viejo. */
+export function riegosRecientes(p: Planta, n = 5): Registro[] {
+  return historial(p).filter((r) => r.tipo === 'riego' || r.tipo === 'fertilizante').slice(0, n)
+}
+
+function cuando(f: Date): string {
+  const ahora = new Date()
+  const h = `${Calendario.hora(f)}:${String(Calendario.minuto(f)).padStart(2, '0')}`
+  if (Calendario.mismoDia(f, ahora)) return `Hoy, ${h}`
+  if (Calendario.dias(f, ahora) === 1) return `Ayer, ${h}`
+  return Formato.fechaHora(f)
+}
+
+/** El pH del agua que sale por abajo de la maceta: se anota en el riego en el que se midió. */
+export function PHDrenaje(p: { planta: Planta; onCerrar: () => void }) {
+  const riegos = riegosRecientes(p.planta)
+  const [id, setId] = useState(riegos[0]?.id)
+  const elegido = riegos.find((r) => r.id === id)
+  const [texto, setTexto] = useState(elegido?.phDrenaje === undefined ? '' : Formato.numero(elegido.phDrenaje))
+  const ref = useRef<HTMLInputElement>(null)
+  useEffect(() => { setTimeout(() => ref.current?.focus(), 300) }, [])
+  const valor = leerPH(texto)
+
+  const guardar = () => {
+    if (!elegido || valor === undefined) return
+    const v = valor
+    cambiar((d) => D.editarRegistro(d, { ...elegido, phDrenaje: v }, p.planta.id))
+    avisar(`pH ${Formato.numero(v)} anotado`)
+    p.onCerrar()
+  }
+
+  return (
+    <Hoja titulo="pH del drenaje" onCerrar={p.onCerrar} onGuardar={guardar} guardarDeshabilitado={!elegido || valor === undefined}>
+      <Seccion pie="Medí el agua que sale por abajo de la maceta después de regar (con tiras o un medidor).">
+        <label class="fila">
+          <span style={{ flex: 1 }}>pH</span>
+          <input ref={ref} type="text" inputMode="decimal" placeholder="6,5" class="campo-ph" value={texto} aria-label="pH del drenaje"
+            onInput={(e) => setTexto((e.target as HTMLInputElement).value)} />
+        </label>
+      </Seccion>
+      {valor !== undefined && <LecturaPH valor={valor} />}
+      {texto.trim() !== '' && valor === undefined && <p class="peligro-texto" style={{ margin: '0 6px', fontSize: '14px' }}>El pH va de 0 a 14.</p>}
+      <Seccion titulo="¿De qué riego?">
+        {riegos.map((r) => (
+          <button key={r.id} class="fila" onClick={() => setId(r.id)} aria-pressed={r.id === id}>
+            <Icono nombre={r.tipo === 'fertilizante' ? 'matraz' : 'gota'} color={r.tipo === 'fertilizante' ? 'var(--verde)' : 'var(--azul)'} />
+            <span class="principal">
+              <span class="nombre">{cuando(r.fecha)}</span>
+              <span class="secundario">
+                {[nombreTipoRegistro[r.tipo], r.aguaML !== undefined ? Formato.volumen(r.aguaML) : undefined,
+                  r.phDrenaje !== undefined ? `ya tiene pH ${Formato.numero(r.phDrenaje)}` : undefined].filter(Boolean).join(' · ')}
+              </span>
+            </span>
+            {r.id === id && <Icono nombre="check" color="var(--verde)" />}
+          </button>
+        ))}
+      </Seccion>
+    </Hoja>
+  )
+}
+
+/** Qué quiere decir el número (en tierra, lo ideal es entre 6 y 7). */
+function LecturaPH({ valor }: { valor: number }) {
+  const [clase, titulo, texto] = valor < 5.8
+    ? ['acido', 'Ácido', 'Más bajo que lo ideal en tierra (6 a 7). Si se repite, revisá el pH del agua con la que regás.']
+    : valor > 7.2
+      ? ['alcalino', 'Alcalino', 'Más alto que lo ideal en tierra (6 a 7). Si se repite, revisá el pH del agua con la que regás.']
+      : ['bien', 'Bien', 'En tierra, lo ideal es entre 6 y 7.']
+  return (
+    <div class={`lectura-ph ${clase}`} role="status">
+      <span class="escala-ph" aria-hidden="true"><span class="marca-ph" style={{ left: `${Math.min(Math.max((valor - 4) / 5, 0), 1) * 100}%` }} /></span>
+      <strong>{titulo}</strong>
+      <span>{texto}</span>
+    </div>
   )
 }

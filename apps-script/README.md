@@ -124,8 +124,8 @@ Google Drive en claude.ai y pedile que lea la planilla.
 
 ## Qué viaja y qué no
 
-- Sí: tipo de evento, fecha, planta, variedad, etapa y día de cultivo, cantidades (ml, g, mm, semillas),
-  producto, dosis, tus notas y la versión de la app.
+- Sí: tipo de evento, fecha, planta, variedad, etapa y día de cultivo, cantidades (ml, g, mm, semillas, pH del
+  drenaje), producto, dosis, tus notas y la versión de la app.
 - A Configuración (no a Registro): el plano del patio, dónde está cada planta y las dosis de las etiquetas.
 - No: fotos (solo "saqué una foto"), la API key de Anthropic, el chat con el asistente, ni nada del modo ejemplo.
 - Importar un backup o "Borrar todos los datos" no anota nada en Registro (para no llenarlo de borrados),

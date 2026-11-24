@@ -44,6 +44,12 @@ El chat del asistente no se pasa (no está en el backup).
 - **Tu patio en Hoy**: arriba de todo está el plano con cada planta donde la ubicaste, con el anillo de su
   etapa y un número rojo si tiene algo para hoy. Tocás una y se abre su ficha (ahí no se arrastra nada, para
   no moverlas sin querer; se acomodan en **Plantas → Patio** o con **Editar**).
+- **Próximos 7 días** (en Hoy): qué va a tocar cada día (riegos, fertilizante, neem…) y qué etapas empiezan,
+  suponiendo que cada día hacés lo que toca.
+- **pH del drenaje** (en la ficha de la planta): el pH del agua que sale por abajo, anotado en el riego en el que
+  se midió. Va al historial, al asistente y a la planilla (fila "pH del drenaje").
+- **Copiar su historia para una IA** (en la ficha de la planta): copia todo lo que le pasó a la planta (datos,
+  sol, clima, pH y cada registro con su día y etapa), listo para pegar en ChatGPT, Claude o Gemini.
 - **Hoja Configuración** en la planilla: el patio, dónde está cada planta y las dosis de las etiquetas van ahí
   (una fila por dato, se reescribe sola), separado de Registro, que queda solo para el historial.
 - **Plano del patio** (nuevo, en **Plantas → Patio**): cargás las medidas, la altura de cada pared (y si hay un

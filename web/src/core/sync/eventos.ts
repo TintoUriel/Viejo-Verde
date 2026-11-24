@@ -28,7 +28,7 @@ export const Eventos = {
       const viejo = planta(a, p.id)
       if (!viejo) {
         // Planta nueva: su historial (germinación y lo que traiga) y sus fotos.
-        r.push(...ordenados(p.registros).flatMap((x) => opcional(Eventos.evento(x, p, app))))
+        r.push(...ordenados(p.registros).flatMap((x) => [...opcional(Eventos.evento(x, p, app)), ...opcional(Eventos.ph(x, p, app))]))
         r.push(...p.fotos.map((f) => eventoFoto(f, p, app)))
         continue
       }
@@ -39,12 +39,17 @@ export const Eventos = {
       const actuales = new Set(p.registros.map((x) => x.id))
       const nuevos = p.registros.filter((x) => !anteriores.has(x.id))
 
-      r.push(...ordenados(nuevos).flatMap((x) => opcional(Eventos.evento(x, p, app))))
+      r.push(...ordenados(nuevos).flatMap((x) => [...opcional(Eventos.evento(x, p, app)), ...opcional(Eventos.ph(x, p, app))]))
 
       for (const reg of p.registros) {
         const ant = anteriores.get(reg.id)
         if (ant && !iguales(ant, reg)) {
-          r.push(base(nuevoID(), ahora, TE.correccion, p, app, `Corrige ${reg.id}: ${resumen(ant)} → ${resumen(reg)}`))
+          // Anotar el pH del drenaje de un riego que no lo tenía es una medición, no una corrección.
+          if (ant.phDrenaje === undefined && reg.phDrenaje !== undefined && iguales({ ...ant, phDrenaje: reg.phDrenaje }, reg)) {
+            r.push(...opcional(Eventos.ph(reg, p, app)))
+          } else {
+            r.push(base(nuevoID(), ahora, TE.correccion, p, app, `Corrige ${reg.id}: ${resumen(ant)} → ${resumen(reg)}`))
+          }
         }
       }
       for (const ant of viejo.registros) {
@@ -233,6 +238,15 @@ export const Eventos = {
     return e
   },
 
+  /** El pH del drenaje de un riego, como fila aparte ("ph-<registro>"), si se midió. */
+  ph(reg: Registro, p: Planta, app: string): EventoSync | undefined {
+    if (reg.phDrenaje === undefined) return undefined
+    const e = base(Eventos.idPH(reg.id), reg.fecha, TE.phDrenaje, p, app)
+    e.cantidad = reg.phDrenaje
+    e.unidad = 'pH'
+    return e
+  },
+
   // ─── Etapas ───
 
   /** Un evento por cada etapa de cultivo que ya empezó (sin contar plántula, que es la germinación).
@@ -280,7 +294,7 @@ export const Eventos = {
   historial(datos: Datos, hoy: Date, app: string): EventoSync[] {
     const r: EventoSync[] = []
     for (const p of datos.plantas) {
-      r.push(...p.registros.flatMap((x) => opcional(Eventos.evento(x, p, app))))
+      r.push(...p.registros.flatMap((x) => [...opcional(Eventos.evento(x, p, app)), ...opcional(Eventos.ph(x, p, app))]))
       r.push(...p.fotos.map((f) => eventoFoto(f, p, app)))
     }
     r.push(...Eventos.cambiosDeEtapa(datos, hoy, app))
@@ -330,6 +344,7 @@ export const Eventos = {
   idFoto: (nombre: string) => `foto-${nombre}`,
   idPaquete: (id: string) => `semillas-${id}`,
   idPolen: (id: string) => `polen-${id}`,
+  idPH: (registroID: string) => `ph-${registroID}`,
 }
 
 // ─── Ayudas ───
@@ -440,6 +455,7 @@ function resumen(r: Registro): string {
   const partes = [`${nombreTipoRegistro[r.tipo]} ${Formato.fechaCorta(r.fecha)}`]
   if (r.producto) partes.push(r.producto)
   if (r.aguaML !== undefined) partes.push(`${r.aguaML} ml`)
+  if (r.phDrenaje !== undefined) partes.push(`pH drenaje ${Formato.numero(r.phDrenaje)}`)
   if (r.nota) partes.push(`«${r.nota}»`)
   return partes.join(', ')
 }

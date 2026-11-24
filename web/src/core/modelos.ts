@@ -64,6 +64,8 @@ export interface Registro {
   /** Fertilizante: ml totales y ml por litro que se usaron. */
   fertilizanteML?: number
   mlPorLitro?: number
+  /** pH del agua que salió por abajo de la maceta en ese riego (opcional). */
+  phDrenaje?: number
 }
 
 export type OpcionesRegistro = Partial<Omit<Registro, 'id' | 'fecha' | 'tipo'>>
@@ -76,6 +78,7 @@ export function nuevoRegistro(fecha: Date, tipo: TipoRegistro, o: OpcionesRegist
   if (o.subtipo !== undefined) r.subtipo = o.subtipo
   if (o.fertilizanteML !== undefined) r.fertilizanteML = o.fertilizanteML
   if (o.mlPorLitro !== undefined) r.mlPorLitro = o.mlPorLitro
+  if (o.phDrenaje !== undefined) r.phDrenaje = o.phDrenaje
   return r
 }
 

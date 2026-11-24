@@ -1,4 +1,5 @@
 import { computed, signal } from '@preact/signals'
+import { Agenda } from '../core/agenda'
 import { HistorialChat, type MensajeChat } from '../core/claude'
 import { AnalisisClima, diaClima, type Pronostico } from '../core/clima'
 import { Cupo } from '../core/consejos'
@@ -39,6 +40,12 @@ export const tareas = computed<Tarea[]>(() =>
   Tareas.generar({
     plantas: datos.value.plantas, paquetes: datos.value.paquetes, hoy: hoy.value,
     config: datos.value.config, pospuestas: datos.value.pospuestas, clima: climaVigente.value,
+  }))
+
+/** Los próximos 7 días: qué va a tocar y qué etapas empiezan. */
+export const agenda = computed(() =>
+  Agenda.proximos({
+    plantas: datos.value.plantas, paquetes: datos.value.paquetes, hoy: hoy.value, config: datos.value.config, clima: climaVigente.value,
   }))
 
 export const avisosClima = computed(() => AnalisisClima.avisos(climaVigente.value, datos.value.plantas, hoy.value))
